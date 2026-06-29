@@ -22,7 +22,7 @@ My goal is not only to complete the assigned tasks but also to build a strong fo
 ## *:･ﾟ✧ Repository Structure
 
 ```text
-Imama-Zubair/
+imama-zubair/
 │
 ├── Week-1/
 │   ├── Day-1/

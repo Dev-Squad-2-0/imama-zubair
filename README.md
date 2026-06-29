@@ -8,7 +8,7 @@ My goal is not only to complete the assigned tasks but also to build a strong fo
 
 ---
 
-## 👩‍💻 About Me
+## About Me
 
 - CompSci Undergrad
 - AI & ML enthusiast
@@ -41,7 +41,7 @@ Each week's folder contains the daily assignments, and solutions completed durin
 
 ---
 
-## 📚 What I'm Learning
+## What I'm Learning
 
 Throughout this internship, I'll be exploring topics including:
 

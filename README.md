@@ -13,7 +13,7 @@ My goal is not only to complete the assigned tasks but also to build a strong fo
 * CompSci Undergrad
 * AI & ML enthusiast
 * Interested in Deep Learning, Computer Vision, and Game Development
-* I also enjoy Cybersecurity—especially reverse engineering :3
+* I also enjoy Cybersecurity, especially reverse engineering :3
 * (ง •̀_•́)ง Currently learning through practical projects and real-world tasks at Netixsol
 * (≧▽≦) I love gaming!
 

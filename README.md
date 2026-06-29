@@ -83,4 +83,4 @@ I'm excited to continue learning and documenting my progress throughout this jou
 
 Thank you for visiting my repository! (｡•̀ᴗ•｡)♡
 
-## Ja! Mata-ne! (≧◡≦) ♡
+## Ja! Mata-ne! (≧◡≦)

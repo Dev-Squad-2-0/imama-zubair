@@ -1,0 +1,27 @@
+
+AFL DATA VALIDATION REPORT
+---------------------------
+
+ROW COUNTS
+  players_info     : 2848 -> 2843  (5 removed)
+  seasonal_stats    : 25491 -> 25481  (10 removed)
+  merged_players    : 25081 rows (inner join of cleaned datasets)
+
+DUPLICATE RECORDS REMOVED
+  players_info exact duplicate rows removed   : 5
+  seasonal_stats exact duplicate rows removed : 10
+
+MISSING VALUES HANDLED
+  players_info.weight == 0 -> set to NaN      : 2 values
+  players_info optional fields left as NaN    : profile_pic, player_common_names, player_teams
+  seasonal_stats advanced-stat NaNs left as-is: 45 columns (era-based non-tracking, not imputed)
+
+OTHER CORRECTIONS
+  seasonal_stats.player_id 'ID_' prefix normalized : 10 values
+  seasonal_stats.games_played negative -> abs()     : 4 rows
+  seasonal_stats.team name variants standardized    : 114 -> 20 canonical names
+
+UNMATCHED player_id VALUES AFTER MERGING
+  seasonal_stats ids with no players_info match : 266
+  players_info ids with no seasonal_stats match : 0
+  -> 400 seasonal_stats rows excluded from merged_players.csv as a result

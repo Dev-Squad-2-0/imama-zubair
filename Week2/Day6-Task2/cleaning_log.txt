@@ -1,0 +1,22 @@
+AFL DATA CLEANING LOG
+-------------------------------
+FOR INFO:
+Removed 5 exact duplicate rows.
+Set 2 weight==0 values to NaN (impossible value).
+ Converted born_date, debut_date, last_date to datetime dtype.
+ Final row count: 2843 (was 2848)
+
+FOR STATS: 
+Normalized player_id: stripped 'ID_' prefix from 10 values.
+Removed 10 exact duplicate rows.
+Fixed 4 rows with negative games_played (took absolute value).
+Standardized team names: 114 raw variants -> 20 canonical teams.
+ total_fantasy_points negative in 10 rows - left unchanged (valid fantasy scoring outcome).
+ Final row count: 25481 (was 25491)
+45 columns retain missing values (era-based non-tracking) - left as NaN, not imputed.
+Unique player ids - stats: 3109, info: 2843
+
+FOR MERGING:
+player_id in seasonal_stats with NO match in players_info: 266
+id in players_info with NO season stats recorded: 0
+merged_players.csv row count: 25081 (400 stats rows excluded - unmatched player_id).

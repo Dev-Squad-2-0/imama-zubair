@@ -127,7 +127,7 @@ cleaned_df = df.copy()
 
 ---
 
-## Sample Insights
+## Insights
 
 - **Wii Sports** is the highest-selling game globally with **82.74 million** copies sold.
 - **PS2** is the highest-grossing platform of all time in this dataset with over **1,255 million** in total sales.

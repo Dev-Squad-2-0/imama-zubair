@@ -2,24 +2,7 @@
 
 ## Overview
 
-This task introduces the fundamentals of SQL using PostgreSQL. The Superstore Sales dataset is imported into a relational database, where SQL queries are used to retrieve, filter, sort, and summarize data.
-
 The objective is to understand how relational databases work and how SQL enables efficient analysis of datasets that are too large to comfortably handle in spreadsheets.
-
----
-
-# Learning Objectives
-
-By completing this task, I learned how to:
-
-- Understand relational database concepts
-- Create and manage PostgreSQL databases
-- Import CSV files into PostgreSQL
-- Retrieve and filter data using SQL
-- Sort and summarize data
-- Use aggregate functions
-- Group data using `GROUP BY`
-- Inspect database tables and columns
 
 ---
 
@@ -61,23 +44,54 @@ Week 3/
 
 ---
 
-# Superstore Dataset Setup Guide
+## Setup Instructions
 
-## Step 1: Create a Database
+### 1. Install PostgreSQL
+
+Download and install PostgreSQL from:
+
+https://www.postgresql.org/download/
+
+During installation:
+
+- Install pgAdmin
+- Remember the password you create for the `postgres` user
+- Keep the default port (5432)
+
+---
+
+### 2. Open pgAdmin
+
+Launch pgAdmin and connect to your PostgreSQL server using the password you created during installation.
+
+---
+
+### 3. Create a Database
+
+Right-click **Databases** → **Create** → **Database**
+
+OR use the following query:
 
 ```sql
 CREATE DATABASE superstore;
 ```
 
-Connect to the database:
+Database name:
 
-```sql
-\c superstore
+```
+superstore
 ```
 
 ---
 
-## Step 2: Create the Table
+### 4. Import the Dataset
+
+1. Download the Superstore Sales dataset from Kaggle.
+2. Create a table named superstore_sales
+
+```sql
+CREATE TABLE superstore_sales;
+```
 
 > Replace the column names and data types below if your downloaded dataset differs.
 
@@ -107,33 +121,55 @@ CREATE TABLE superstore_sales (
 );
 ```
 
----
-
-## Step 3: Import the CSV
-
-Move the CSV file somewhere PostgreSQL can access.
-
-Then run:
-
-```sql
-COPY superstore_sales
-FROM '/path/to/superstore_sales.csv'
-DELIMITER ','
-CSV HEADER;
-```
-
-### Windows Example
-
-```sql
-COPY superstore_sales
-FROM 'C:/Users/YourName/Downloads/superstore_sales.csv'
-DELIMITER ','
-CSV HEADER;
-```
-
-> If you're using pgAdmin, you can also import the CSV through **Import/Export Data**, but the `COPY` command is the SQL-based approach.
+3. Import the CSV into the table using pgAdmin's Import/Export tool.
 
 ---
+
+### 5. Run SQL Queries
+# Superstore Dataset Setup Guide
+
+## Step 1: Create a Database
+
+```sql
+CREATE DATABASE superstore;
+```
+
+---
+
+## Step 2: Create the Table
+
+> Replace the column names and data types below if your downloaded dataset differs. 
+The `COPY` command is the SQL-based approach.
+
+```sql
+CREATE TABLE superstore_sales (
+    row_id INT,
+    order_id VARCHAR(30),
+    order_date DATE,
+    ship_date DATE,
+    ship_mode VARCHAR(50),
+    customer_id VARCHAR(30),
+    customer_name VARCHAR(100),
+    segment VARCHAR(50),
+    country VARCHAR(50),
+    city VARCHAR(100),
+    state VARCHAR(100),
+    postal_code VARCHAR(20),
+    region VARCHAR(50),
+    product_id VARCHAR(30),
+    category VARCHAR(50),
+    sub_category VARCHAR(50),
+    product_name TEXT,
+    sales NUMERIC(10,2),
+    quantity INT,
+    discount NUMERIC(5,2),
+    profit NUMERIC(10,2)
+);
+```
+
+---
+
+
 
 ## Step 4: Verify the Import
 
@@ -316,21 +352,6 @@ SELECT
     COUNT(*) AS total_orders
 FROM superstore_sales
 GROUP BY segment;
-```
-
----
-
-# Useful Metadata Query
-
-Display every column in the table:
-
-```sql
-SELECT
-    column_name,
-    data_type,
-    is_nullable
-FROM information_schema.columns
-WHERE table_name = 'superstore_sales';
 ```
 
 ---

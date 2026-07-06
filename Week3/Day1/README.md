@@ -44,7 +44,7 @@ Week 3/
 
 ---
 
-## Setup Instructions
+# Setup Instructions
 
 ### 1. Install PostgreSQL
 
@@ -91,31 +91,37 @@ CREATE TABLE superstore_sales;
 
 ```sql
 CREATE TABLE superstore_sales (
-    row_id INT,
-    order_id VARCHAR(30),
-    order_date DATE,
-    ship_date DATE,
-    ship_mode VARCHAR(50),
-    customer_id VARCHAR(30),
-    customer_name VARCHAR(100),
-    segment VARCHAR(50),
-    country VARCHAR(50),
-    city VARCHAR(100),
-    state VARCHAR(100),
-    postal_code VARCHAR(20),
-    region VARCHAR(50),
-    product_id VARCHAR(30),
-    category VARCHAR(50),
-    sub_category VARCHAR(50),
-    product_name TEXT,
-    sales NUMERIC(10,2),
-    quantity INT,
-    discount NUMERIC(5,2),
-    profit NUMERIC(10,2)
+    "Row ID" INT,
+    "Order ID" VARCHAR(30),
+    "Order Date" DATE,
+    "Ship Date" DATE,
+    "Ship Mode" VARCHAR(50),
+    "Customer ID" VARCHAR(30),
+    "Customer Name" VARCHAR(100),
+    "Segment" VARCHAR(50),
+    "Country" VARCHAR(50),
+    "City" VARCHAR(100),
+    "State" VARCHAR(100),
+    "Postal Code" VARCHAR(20),
+    "Region" VARCHAR(50),
+    "Product ID" VARCHAR(30),
+    "Category" VARCHAR(50),
+    "Sub-Category" VARCHAR(50),
+    "Product Name" TEXT,
+    "Sales" NUMERIC(10,2),
+    "Quantity" INT,
+    "Discount" NUMERIC(5,2),
+    "Profit" NUMERIC(10,2)
 );
 ```
 
-3. Import the CSV into the table using pgAdmin's Import/Export tool.
+3. Import the CSV into the table using pgAdmin's Import/Export tool OR
+    Use the following query:
+    ```sql
+    copy superstore_sales ("Row ID","Order ID","Order Date","Ship Date","Ship Mode","Customer ID","Customer Name","Segment","Country","City","State","Postal Code","Region","Product ID","Category","Sub-Category","Product Name","Sales","Quantity","Discount","Profit") 
+    FROM 'D:\repos\NETIXSOL\imama-zubair\Week3\Day1\superstore_sales.csv'
+    WITH (FORMAT csv, HEADER, DELIMITER ',', ENCODING 'WIN1252')
+```
 
 ---
 
@@ -150,148 +156,6 @@ SELECT
 FROM information_schema.columns
 WHERE table_name = 'superstore_sales';
 ```
-
----
-
-# Basic SQL Queries
-
-## Retrieve all rows
-
-```sql
-SELECT *
-FROM superstore_sales;
-```
-
----
-
-## Retrieve specific columns
-
-```sql
-SELECT customer_name, sales
-FROM superstore_sales;
-```
-
----
-
-## Remove duplicate values
-
-```sql
-SELECT DISTINCT category
-FROM superstore_sales;
-```
-
----
-
-## Filter rows
-
-```sql
-SELECT *
-FROM superstore_sales
-WHERE sales > 1000;
-```
-
----
-
-## Sort data
-
-```sql
-SELECT customer_name, sales
-FROM superstore_sales
-ORDER BY sales DESC;
-```
-
----
-
-## Limit returned rows
-
-```sql
-SELECT *
-FROM superstore_sales
-LIMIT 10;
-```
-
----
-
-## Rename a column
-
-```sql
-SELECT
-    customer_name AS customer,
-    sales AS total_sales
-FROM superstore_sales;
-```
-
----
-
-# Aggregate Functions
-
-## Count rows
-
-```sql
-SELECT COUNT(*)
-FROM superstore_sales;
-```
-
----
-
-## Total sales
-
-```sql
-SELECT SUM(sales)
-FROM superstore_sales;
-```
-
----
-
-## Average sales
-
-```sql
-SELECT AVG(sales)
-FROM superstore_sales;
-```
-
----
-
-## Minimum sale
-
-```sql
-SELECT MIN(sales)
-FROM superstore_sales;
-```
-
----
-
-## Maximum sale
-
-```sql
-SELECT MAX(sales)
-FROM superstore_sales;
-```
-
----
-
-# Grouping Data
-
-Total sales by category:
-
-```sql
-SELECT
-    category,
-    SUM(sales) AS total_sales
-FROM superstore_sales
-GROUP BY category;
-```
-
-Average profit by region:
-
-```sql
-SELECT
-    region,
-    AVG(profit) AS average_profit
-FROM superstore_sales
-GROUP BY region;
-```
-
 
 ---
 

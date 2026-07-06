@@ -138,7 +138,7 @@ LIMIT 10;
 
 ---
 
-## 6: View the Table Structure
+### 6: View the Table Structure
 
 View all columns and their data types:
 
@@ -292,15 +292,6 @@ FROM superstore_sales
 GROUP BY region;
 ```
 
-Number of orders per segment:
-
-```sql
-SELECT
-    segment,
-    COUNT(*) AS total_orders
-FROM superstore_sales
-GROUP BY segment;
-```
 
 ---
 
@@ -320,15 +311,5 @@ GROUP BY segment;
 
 ---
 
-# Learning Outcomes
-
-After completing this project, I can:
-
-- Explain the difference between databases, CSV files, and spreadsheets.
-- Create and manage PostgreSQL databases.
-- Import CSV data using SQL.
-- Retrieve, filter, and sort data with SQL.
-- Use aggregate functions to summarize data.
-- Group records using `GROUP BY`.
-- Inspect database metadata using `information_schema`.
-- Write reusable SQL scripts for data analysis.
+## Author:
+Imama Zubair

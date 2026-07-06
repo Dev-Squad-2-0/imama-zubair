@@ -123,8 +123,7 @@ CREATE TABLE superstore_sales (
     WITH (FORMAT csv, HEADER, DELIMITER ',', ENCODING 'WIN1252')
 ```
 
----
-
+```
 ### 5.: Verify the Import
 
 Count the rows:

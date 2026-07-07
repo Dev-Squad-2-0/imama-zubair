@@ -38,4 +38,4 @@ The Entity Relationship Diagram (ERD) was generated using pgAdmin's Generate ERD
 
 #### ER Diagram:
 
-![ERD](Day2/screenshots/erd.png)
+![ERD](erd.png)

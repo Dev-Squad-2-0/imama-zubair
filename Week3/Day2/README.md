@@ -9,6 +9,8 @@ Brief explanation of the DVD Rental database and the goal of learning SQL JOINs.
 DVD Rental Sample Database
 **Source**: https://neon.com/postgresql/getting-started/sample-database
 
+---
+
 # **Part 1: Relationship Discovery**
 
 ## Primary Keys and Foreign Keys
@@ -121,7 +123,7 @@ The **Sports** category had the highest rental revenue (**$4,892.19**), followed
 **Saint-Denis** had the highest rental revenue (**$211.55**), followed by **Cape Coral** and **Santa Brbara dOeste**. This shows that customer activity is different depending on the city.
 
 ---
-## Skills Demonstrated
+# Skills Demonstrated
 
 
 * Relational schema analysis (PK/FK identification)

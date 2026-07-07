@@ -108,15 +108,15 @@ All 10 required queries plus the bonus challenge are in `joins.sql`
 
 # Business Insights
 
-1. **Some customers spend much more than others.** 
+### 1. **Some customers spend much more than others.** 
 
 Eleanor Hunt spent the most (**$211.55**), followed by Karl Seal and Marion Snyder. These customers are important because they bring in more revenue than the average customer.
 
-2. **Sports movies made the most money.** 
+### 2. **Sports movies made the most money.** 
 
 The **Sports** category had the highest rental revenue (**$4,892.19**), followed by **Sci-Fi** and **Animation**. This shows that these categories are more popular with customers.
 
-3. **Some cities earned more rental revenue than others.** 
+### 3. **Some cities earned more rental revenue than others.** 
 
 **Saint-Denis** had the highest rental revenue (**$211.55**), followed by **Cape Coral** and **Santa Brbara dOeste**. This shows that customer activity is different depending on the city.
 

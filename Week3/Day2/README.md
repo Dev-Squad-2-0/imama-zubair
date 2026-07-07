@@ -1,3 +1,14 @@
+# SQL Joins & Relational Database Analysis
+
+## Overview
+
+Brief explanation of the DVD Rental database and the goal of learning SQL JOINs.
+
+## Dataset
+
+DVD Rental Sample Database
+**Source**: https://neon.com/postgresql/getting-started/sample-database
+
 ## Primary Keys and Foreign Keys
 
 | Table             | Primary Key(s)                                       | Foreign Key(s)                                                                                                       |
@@ -19,6 +30,7 @@
 | **store**         | `store_id`                                           | `address_id` → `address.address_id`<br>`manager_staff_id` → `staff.staff_id`                                         |
 
 
+## Relationship Diagram
 
-Made the ERD:
-Right click on the db -> select ERD for databse -> generate ERD and 
+> Right click on the db --> select ERD for databse --> generate ERD and download it
+

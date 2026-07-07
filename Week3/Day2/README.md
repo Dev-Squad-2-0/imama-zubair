@@ -9,6 +9,8 @@ Brief explanation of the DVD Rental database and the goal of learning SQL JOINs.
 DVD Rental Sample Database
 **Source**: https://neon.com/postgresql/getting-started/sample-database
 
+# Part 1: Relationship Discovery
+
 ## Primary Keys and Foreign Keys
 
 | Table             | Primary Key(s)                                       | Foreign Key(s)                                                                                                       |
@@ -39,3 +41,18 @@ The Entity Relationship Diagram (ERD) was generated using pgAdmin's Generate ERD
 #### ER Diagram:
 
 ![ERD](erd.png)
+
+---
+
+# Part 2: SQL JOIN Challenges
+
+1. Display Customer Name, Email, City, and Country.
+2. Display every payment with Customer Name, Film Title, and Amount Paid.
+3. Display every payment with Customer Name, Film Title, and Amount Paid.
+4. Find the Top 10 customers based on total amount spent.
+5. Display each film with its Category and Rental Rate.
+6. Find all actors who appeared in each film.
+7. Count how many films belong to each category.
+8. Which categories generated the highest revenue? (Hint: This requires joining multiple tables.)
+9. Find customers who have rented more than 20 films.
+10. Which cities generated the highest rental revenue?

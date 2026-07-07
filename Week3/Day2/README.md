@@ -46,8 +46,7 @@ The Entity Relationship Diagram (ERD) was generated using pgAdmin's Generate ERD
 
 # Part 2: SQL JOIN Challenges
 
-## Joins Used
-## JOIN Types Used
+## JOIN TYPES
 
 **JOIN/INNER JOIN**:Used when matching rows exist in both tables.
 

@@ -65,9 +65,9 @@ ORDER BY f.title
 SELECT CONCAT(a.first_name , ' ', a.last_name) AS "Actor", f.title AS "Film Title"
 FROM film f
 INNER JOIN film_actor AS fa
-    ON f.film_id = fa.film_id
+ON f.film_id = fa.film_id
 INNER JOIN actor AS a
-    ON fa.actor_id = a.actor_id
+ON fa.actor_id = a.actor_id
 ORDER BY
     f.title, "Actor";
 

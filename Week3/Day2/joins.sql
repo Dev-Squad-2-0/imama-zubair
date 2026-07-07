@@ -24,8 +24,18 @@ JOIN country AS co
 ON ci.country_id = co.country_id
 
 
--- 2.Display every payment with Customer Name, Film Title, and Amount Paid.
--- 3.Display every payment with Customer Name, Film Title, and Amount Paid.
+-- 2 and 3.Display every payment with Customer Name, Film Title, and Amount Paid.
+SELECT CONCAT(c.first_name , ' ', c.last_name) AS "Customer Name", f.title AS "Film Title", p.amount AS "Amount Paid"
+FROM payment p
+JOIN customer AS c
+ON p.customer_id = c.customer_id
+JOIN rental AS r
+ON p.rental_id = r.rental_id
+JOIN inventory as i
+ON r.inventory_id = i.inventory_id
+JOIN film AS f
+ON i.film_id = f.film_id
+
 -- 4.Find the Top 10 customers based on total amount spent.
 -- 5.Display each film with its Category and Rental Rate.
 -- 6.Find all actors who appeared in each film.

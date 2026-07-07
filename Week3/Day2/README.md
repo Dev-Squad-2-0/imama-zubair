@@ -46,6 +46,19 @@ The Entity Relationship Diagram (ERD) was generated using pgAdmin's Generate ERD
 
 # Part 2: SQL JOIN Challenges
 
+## Joins Used
+## JOIN Types Used
+
+**JOIN/INNER JOIN**:Used when matching rows exist in both tables.
+
+**LEFT JOIN**: Returns all rows from the left table and matching rows from the right table.
+
+**RIGHT JOIN**: Returns all rows from the right table and matching rows from the left table.
+
+**FULL OUTER JOIN**: Returns all rows from both tables, matching where possible.
+
+## SQL Queries
+
 1. Display Customer Name, Email, City, and Country.
 2. Display every payment with Customer Name, Film Title, and Amount Paid.
 3. Display every payment with Customer Name, Film Title, and Amount Paid.

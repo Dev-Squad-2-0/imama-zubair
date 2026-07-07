@@ -9,7 +9,7 @@ Brief explanation of the DVD Rental database and the goal of learning SQL JOINs.
 DVD Rental Sample Database
 **Source**: https://neon.com/postgresql/getting-started/sample-database
 
-# Part 1: Relationship Discovery
+# **Part 1: Relationship Discovery**
 
 ## Primary Keys and Foreign Keys
 
@@ -44,7 +44,7 @@ The Entity Relationship Diagram (ERD) was generated using pgAdmin's Generate ERD
 
 ---
 
-# Part 2: SQL JOIN Challenges
+# **Part 2: SQL JOIN Challenges**
 
 ## JOIN Types
 

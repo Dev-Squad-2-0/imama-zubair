@@ -32,5 +32,10 @@ DVD Rental Sample Database
 
 ## Relationship Diagram
 
+The Entity Relationship Diagram (ERD) was generated using pgAdmin's Generate ERD feature. The diagram illustrates the relationships between the normalized tables through their primary and foreign keys.
+
 > Right click on the db --> select ERD for databse --> generate ERD and download it
 
+#### ER Diagram:
+
+![ERD](Week3\Day2\screenshots\erd.png)

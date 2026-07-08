@@ -22,23 +22,21 @@ This project uses the PostgreSQL DVD Rental sample database. The same as before
 
 Use a subquery when another query depends on the result of a smaller query.
 
-Example:
-- Customers spending above the average customer.
+Example: Customers spending above the average customer.
 
 ### CTE
 
 Use a CTE when a query has multiple logical steps and readability is important.
 
-Example:
-- Ranking customers after calculating their total spending.
+Example: Ranking customers after calculating their total spending.
 
 ### Window Function
 
 Use window functions when calculations should keep every row instead of grouping everything into one row.
 
 Example:
-- Ranking customers within each city.
-- Finding the latest rental for every customer.
+1. Ranking customers within each city.
+2. Finding the latest rental for every customer.
 
 **Note**: use a subquery for a one-off value, a CTE to organize a multi-step query, and a window function whenever the output needs to stay row-level while still comparing against a group.
 

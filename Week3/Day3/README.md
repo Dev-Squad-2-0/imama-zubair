@@ -112,10 +112,7 @@ Example:
 
 
 
-### Bonus
-
-Determine which staff member generated the highest revenue in each store and calculate their percentage contribution to the store's total revenue.
-
+### Bonus Question: Which staff member processed the highest revenue in each store, and what percentage of that store's total revenue did they contribute?
 **Explanation:**
 
 ---

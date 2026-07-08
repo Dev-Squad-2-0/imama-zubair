@@ -134,7 +134,81 @@ SELECT customer_id, title AS most_recent_film, rental_date
 FROM ranked_rentals
 WHERE rn = 1
 ORDER BY customer_id;
+
+
 -- 11. Using a CTE, calculate month-over-month rental revenue growth.
+WITH monthly_revenue AS (
+    SELECT DATE_TRUNC('month', payment_date)::date AS revenue_month, SUM(amount) AS revenue
+    FROM payment
+    GROUP BY revenue_month
+),
+revenue_with_growth AS (
+    SELECT revenue_month, revenue, LAG(revenue) OVER (ORDER BY revenue_month) AS prev_month_revenue
+    FROM monthly_revenue
+)
+SELECT revenue_month, revenue, prev_month_revenue,
+    ROUND(
+        CASE
+            WHEN prev_month_revenue IS NULL OR prev_month_revenue = 0 THEN NULL
+            ELSE ((revenue - prev_month_revenue) / prev_month_revenue) * 100
+        END, 2
+    ) AS pct_growth
+FROM revenue_with_growth
+ORDER BY revenue_month;
+ 
+
+
 -- 12. Find the top 3 highest-grossing films per category using RANK() inside a CTE.
+WITH film_revenue AS (
+   SELECT c.name AS category, f.title, SUM(p.amount) AS total_revenue
+    FROM film f
+    JOIN film_category fc ON f.film_id = fc.film_id
+    JOIN category c ON fc.category_id = c.category_id
+    JOIN inventory i ON f.film_id = i.film_id
+    JOIN rental r ON i.inventory_id = r.inventory_id
+    JOIN payment p ON r.rental_id = p.rental_id
+    GROUP BY c.name, f.title
+),
+ranked_films AS (
+    SELECT category, title, total_revenue,
+    RANK() OVER (PARTITION BY category ORDER BY total_revenue DESC) AS revenue_rank
+    FROM film_revenue
+)
+SELECT *
+FROM ranked_films
+WHERE revenue_rank <= 3
+ORDER BY  category, revenue_rank;
+
 -- Bonus Challenge
--- Without looking at any online solution, write a single query (using CTEs) that finds: Which staff member processed the highest revenue in each store, and what percentage of that store's total revenue did they contribute? This requires combining aggregation, a CTE, and a percentage calculation in the same query.
+-- Which staff member processed the highest revenue in each store, and what percentage of that store's total revenue did they contribute?
+WITH staff_revenue AS(
+	SELECT s.staff_id, CONCAT(s.first_name, ' ', s.last_name) AS "Name", s.store_id, SUM(p.amount) AS staff_total
+    FROM payment p
+    JOIN staff s 
+	ON p.staff_id = s.staff_id
+    GROUP BY s.staff_id, s.first_name, s.last_name, s.store_id
+),
+store_revenue AS (
+    --total revenue per store
+    SELECT store_id, SUM(staff_total) AS store_total
+    FROM staff_revenue
+    GROUP BY store_id
+),
+top_staff_per_store AS (
+    --rank staff within each store by how much revenue they processed
+    SELECT sr.staff_id, sr."Name",sr.store_id,sr.staff_total,
+        RANK() OVER (PARTITION BY sr.store_id ORDER BY sr.staff_total DESC) AS rnk
+    FROM staff_revenue sr
+)
+SELECT t.store_id, t."Name",t.staff_total AS staff_revenue,st.store_total,(t.staff_total / st.store_total) AS pct_of_store_revenue
+FROM top_staff_per_store t
+JOIN store_revenue st ON t.store_id = st.store_id
+WHERE t.rnk = 1
+ORDER BY t.store_id;
+ 
+
+
+
+
+
+

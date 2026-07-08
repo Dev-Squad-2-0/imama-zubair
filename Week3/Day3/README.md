@@ -123,15 +123,15 @@ Example:
 
 ## Business Insights
 
-**Insight 1: Store Performance**
+### **Insight 1: Store Performance**
 
 Store 2 generated slightly more revenue than Store 1, earning $31,059.92 compared to $30,252.12. This suggests that both stores performed similarly, but Store 2 had a small advantage in total sales.
 
-**Insight 2: Customer Spending**
+### **Insight 2: Customer Spending**
 
 Customer spending varies quite a bit. The highest-spending customer spent $211.55, while many other customers spent just over $100. This shows that a relatively small group of customers contributes significantly more revenue than the average customer.
 
-**Insight 3: Film Performance**
+### **Insight 3: Film Performance**
 
 Some films earned much more revenue than others within their categories. For example, "Telegraph Voyage" was the highest-grossing Music film with $215.75, while "Zorro Ark" led the Comedy category with $199.72. These top-performing films could be promoted more often since they appear to be customer favorites.
 

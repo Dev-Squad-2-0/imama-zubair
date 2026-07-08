@@ -135,7 +135,9 @@ Customer spending varies quite a bit. The highest-spending customer spent $211.5
 
 Some films earned much more revenue than others within their categories. For example, "Telegraph Voyage" was the highest-grossing Music film with $215.75, while "Zorro Ark" led the Comedy category with $199.72. These top-performing films could be promoted more often since they appear to be customer favorites.
 
+An extra insight: There are no customers who never rented a film
 ---
+
 
 ## Files Included
 

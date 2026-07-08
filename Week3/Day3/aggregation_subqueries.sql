@@ -1,9 +1,19 @@
 -- Part 1 — Aggregation Basics
 -- 1. Find the total revenue generated per store.
+SELECT s.store_id, SUM(p.amount) AS "Total Revenue"
+FROM payment AS p
+JOIN staff AS s 
+ON p.staff_id = s.staff_id
+GROUP BY s.store_id
+ORDER BY "Total Revenue" DESC
 
 -- 2. Find the average rental duration per film category.
+
+
 -- 3. Find the number of rentals made each month.
+
 -- 4. Find categories with more than 50 films (use HAVING).
+
 -- Part 2 — Subquery Challenges
 -- 5. Find customers who spent more than the average customer spend.
 -- 6. Find the film(s) with the highest rental rate in each category (use a correlated subquery).

@@ -1,0 +1,18 @@
+-- Part 1 — Aggregation Basics
+-- 1. Find the total revenue generated per store.
+
+-- 2. Find the average rental duration per film category.
+-- 3. Find the number of rentals made each month.
+-- 4. Find categories with more than 50 films (use HAVING).
+-- Part 2 — Subquery Challenges
+-- 5. Find customers who spent more than the average customer spend.
+-- 6. Find the film(s) with the highest rental rate in each category (use a correlated subquery).
+-- 7. Find customers who have never rented a film (use NOT IN / NOT EXISTS).
+-- 8. Find the store with the highest total revenue using a subquery in the WHERE clause.
+-- Part 3 — CTE & Window Function Challenges
+-- 9. Using a CTE, rank customers by total spend within each city.
+-- 10. Using ROW_NUMBER(), find the most recently rented film for each customer.
+-- 11. Using a CTE, calculate month-over-month rental revenue growth.
+-- 12. Find the top 3 highest-grossing films per category using RANK() inside a CTE.
+-- Bonus Challenge
+-- Without looking at any online solution, write a single query (using CTEs) that finds: Which staff member processed the highest revenue in each store, and what percentage of that store's total revenue did they contribute? This requires combining aggregation, a CTE, and a percentage calculation in the same query.

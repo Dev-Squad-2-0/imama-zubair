@@ -102,7 +102,38 @@ WHERE revenue =
 
 -- Part 3 — CTE & Window Function Challenges
 -- 9. Using a CTE, rank customers by total spend within each city.
+WITH customer_spend AS (
+    SELECT cu.customer_id, cu.first_name, cu.last_name, ci.city, SUM(p.amount) AS total_spent
+    FROM customer cu
+    JOIN payment p 
+	ON cu.customer_id = p.customer_id
+    JOIN address a 
+	ON cu.address_id = a.address_id
+    JOIN city ci 
+	ON a.city_id = ci.city_id
+    GROUP BY cu.customer_id, cu.first_name, cu.last_name, ci.city
+)
+SELECT customer_id, first_name, last_name, city, total_spent,
+RANK() OVER (PARTITION BY city ORDER BY total_spent DESC) AS rank_in_city
+FROM customer_spend
+ORDER BY rank_in_city, city;
+
+
 -- 10. Using ROW_NUMBER(), find the most recently rented film for each customer.
+WITH ranked_rentals AS (
+    SELECT r.customer_id, f.title, r.rental_date, ROW_NUMBER() OVER (PARTITION BY r.customer_id
+	ORDER BY r.rental_date DESC
+    ) AS rn
+    FROM rental r
+    JOIN inventory i 
+	ON r.inventory_id = i.inventory_id
+    JOIN film f 
+	ON i.film_id = f.film_id
+)
+SELECT customer_id, title AS most_recent_film, rental_date
+FROM ranked_rentals
+WHERE rn = 1
+ORDER BY customer_id;
 -- 11. Using a CTE, calculate month-over-month rental revenue growth.
 -- 12. Find the top 3 highest-grossing films per category using RANK() inside a CTE.
 -- Bonus Challenge

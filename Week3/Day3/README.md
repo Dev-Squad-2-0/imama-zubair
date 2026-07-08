@@ -1,4 +1,4 @@
-<h1 style="color: blue; text-align: center;">Week 3 Day 3: SQL Aggregation, Subqueries and CTEs </h1>
+<h1 align="center">Week 3 Day 3: SQL Aggregation, Subqueries and CTEs </h1>
 
 ## Overview
 

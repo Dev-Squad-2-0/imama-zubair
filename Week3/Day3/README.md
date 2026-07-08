@@ -1,8 +1,8 @@
-# Week 3 - Day 3: SQL Aggregation, Subqueries & CTEs
+# Week 3 Day 3: SQL Aggregation, Subqueries and CTEs
 
 ## Overview
 
-This project builds on SQL JOINs by introducing aggregation, subqueries, Common Table Expressions (CTEs), and window functions. The goal is to answer more complex business questions by summarizing data, breaking queries into smaller steps, and ranking results.
+This one builds on SQL JOINs by introducing aggregation, subqueries, Common Table Expressions (CTEs), and window functions. The goal is to answer more complex business questions by summarizing data, breaking queries into smaller steps, and ranking results.
 
 ---
 

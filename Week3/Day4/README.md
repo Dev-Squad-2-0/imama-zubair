@@ -30,6 +30,7 @@ The database contains information about customers, invoices, employees, artists,
 
 ## Project Structure
 
+```text
 Customer Profile
         ↓
 Customer Segments
@@ -43,7 +44,7 @@ Country Metrics
 Country Rankings
         ↓
 Executive Report
-
+```
 ---
 
 ## **Task 1: Customer Profile**

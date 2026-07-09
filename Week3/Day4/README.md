@@ -167,6 +167,18 @@ Combined everything above into one report: segment summary, revenue by segment, 
 
 ---
 
+## Skills Demonstrated
+
+
+* Multi-level and chained CTEs
+* Window functions (aggregate + ranking(ROW_NUMBER, RANK, NTILE))
+* Conditional aggregation and CASE WHEN logic
+* Business KPI design and weighted scoring (composite score and expansion score)
+* Data normalization for fair metric comparison
+* SQL query organization and readability
+
+---
+
 ## Author 
 
 *Imama Zubair*

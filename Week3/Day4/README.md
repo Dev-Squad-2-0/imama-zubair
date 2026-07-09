@@ -80,7 +80,7 @@ I then used `NTILE(4)` to split customers into four equal groups:
 
 ---
 
-## **Task 3: Marketing Recommendation **
+## **Task 3: Marketing Recommendation**
 
 Found each customer's favorite genre with a window function, then matched every segment to a campaign (early access, bundles, genre discounts, first purchase coupons).
 

@@ -49,7 +49,11 @@ Throughout this internship, I'll be exploring topics including:
 * NumPy
 * Pandas
 * Data Cleaning
+* SQL
+* Data Analysis
 * Statistics for Data Science
+* Machine Learning
+* Model Training
 
 ...with many more topics to come! (ﾉ>ω<)ﾉ
 
@@ -75,7 +79,7 @@ By the end of this internship, I hope to:
 
 ## (人◕‿◕) Thank You
 
-A huge thank you to **Netixsol** for providing this opportunity to learn, grow, and gain hands-on experience in Artificial Intelligence.
+A huge thank you to **Netixsol** for providing this opportunity to learn, grow, and gain hands-on experience in Artificial Intelligence (& Data Science)
 
 I'm excited to continue learning and documenting my progress throughout this journey! ＼(^▽^)／
 

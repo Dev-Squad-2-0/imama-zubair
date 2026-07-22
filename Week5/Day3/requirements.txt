@@ -1,0 +1,8 @@
+langgraph==0.2.60
+langchain==0.3.30
+langchain-core==0.3.86
+langchain-openai==0.3.32
+openai==1.109.1
+python-dotenv==1.2.2
+pydantic==2.13.4
+typing_extensions==4.16.0

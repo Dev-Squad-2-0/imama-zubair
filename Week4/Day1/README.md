@@ -57,24 +57,6 @@ This project sets up the foundational pipeline for predicting whether an individ
 
 ---
 
-## Project Structure
-
-```
-Week4_Day1_ML_Foundations/
-│
-├── data/
-│   └── adult_census.csv
-├── notebooks/
-│   └── week4_day1_ml_foundations.ipynb
-├── outputs/
-│   ├── baseline_metrics.csv
-│   └── error_analysis_sample.csv
-├── deliverable_summary.pdf
-└── README.md
-```
-
----
-
 ## Key Insights
 - **Class Imbalance:** High-income earners (`>50K`) represent approximately 24% of the dataset, establishing a majority class baseline accuracy of 76.1%.
 - **Capital Gain Rule Superiority:** Screening by `capital-gain > 0` yielded the highest baseline Precision (0.625) and Accuracy (0.782), directly aligning with the business goal of minimizing wasted contacts.

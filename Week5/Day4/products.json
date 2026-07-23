@@ -1,0 +1,5 @@
+{
+  "laptop_a": {"name": "AeroBook 14", "price": 899, "battery_life_hrs": 10, "ram_gb": 16},
+  "laptop_b": {"name": "SwiftPro X", "price": 1299, "battery_life_hrs": 8, "ram_gb": 32},
+  "laptop_c": {"name": "ValueBook Lite", "price": 549, "battery_life_hrs": 7, "ram_gb": 8}
+}

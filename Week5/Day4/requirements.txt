@@ -1,3 +1,7 @@
-crewai
-crewai-tools
-python-dotenv
+crewai==1.15.5
+crewai-tools==1.15.5
+
+langchain==0.3.30
+langchain-core==0.3.86
+
+python-dotenv==1.2.2

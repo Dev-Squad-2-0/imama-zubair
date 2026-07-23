@@ -103,23 +103,18 @@ The manager decides which agent performs each task and combines their outputs.
 
 ---
 
-## Success Criteria
+### Success Criteria and Manual Evaluation
+**Success Criteria**
+1. **Factual grounding** : does the recommendation email correctly reflect the actual catalog data (right price, right battery life, no invented specs)?
+2. **Completeness** :does it address the customer's stated priorities (battery life, budget) and mention at least one runner-up tradeoff?
+3. **Tone** : does it read as a natural, friendly customer email rather than a spec dump?
 
-Each run was evaluated using three criteria.
+| Run                  | Factual Grounding | Completeness | Customer-Friendly Tone | Overall   |
+| -------------------- | ----------------- | ------------ | ---------------------- | --------- |
+| Single-Agent (Day 3) | **5/5**           | **4/5**      | **4/5**                | **13/15** |
+| Sequential Crew      | **5/5**           | **5/5**      | **5/5**                | **15/15** |
+| Hierarchical Crew    | **2/5**           | **3/5**      | **5/5**                | **10/15** |
 
-| Criterion | Description |
-|-----------|-------------|
-| Factual Grounding | Uses only catalog information without inventing specifications. |
-| Completeness | Includes comparison of all laptops and recommends one. |
-| Customer Tone | Friendly, professional, and easy to understand. |
-
-### Manual Evaluation
-
-| Run | Factual Grounding | Completeness | Tone |
-|-----|-------------------|--------------|------|
-| Sequential | ✅ | ✅ | ✅ |
-| Hierarchical | ❌ | ❌ | ✅ |
-| Single-Agent | ✅ | ✅ | ✅ |
 
 ---
 

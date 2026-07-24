@@ -1,0 +1,20 @@
+{
+  "chainforge labs": {
+    "name": "ChainForge Labs",
+    "industry": "DeFi tooling",
+    "size": "11-50 employees",
+    "notes": "Building a cross-chain liquidity router. Previously self-hosted, evaluating managed infra."
+  },
+  "nftbay": {
+    "name": "NFTBay",
+    "industry": "NFT marketplace",
+    "size": "1-10 employees",
+    "notes": "Early-stage marketplace, needs help with smart contract audits and storefront onboarding."
+  },
+  "daoflow": {
+    "name": "DAOFlow",
+    "industry": "DAO governance tooling",
+    "size": "51-200 employees",
+    "notes": "Existing customer of Web3Geeks basic tier, exploring an upgrade to enterprise governance package."
+  }
+}

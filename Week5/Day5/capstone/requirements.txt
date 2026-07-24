@@ -1,0 +1,18 @@
+crewai==1.15.5
+crewai-tools==0.76.0
+
+langgraph==0.6.5
+langgraph-checkpoint==2.1.1
+
+fastapi==0.116.1
+uvicorn==0.35.0
+
+pydantic[email]
+
+python-dotenv>=1.2.2
+
+reportlab==4.4.3
+
+# openai
+# requests
+# PyYAML

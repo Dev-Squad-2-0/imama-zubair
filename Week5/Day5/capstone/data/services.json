@@ -1,0 +1,32 @@
+{
+  "smart_contract_audit": {
+    "name": "Smart Contract Audit",
+    "price_usd": 8000,
+    "duration_weeks": 2,
+    "best_for": ["security", "pre-launch", "NFT marketplace", "DeFi tooling"]
+  },
+  "managed_node_infra": {
+    "name": "Managed Node Infrastructure",
+    "price_usd": 2500,
+    "duration_weeks": 1,
+    "best_for": ["infra", "scaling", "DeFi tooling", "cross-chain"]
+  },
+  "governance_platform_setup": {
+    "name": "DAO Governance Platform Setup",
+    "price_usd": 6000,
+    "duration_weeks": 3,
+    "best_for": ["DAO governance tooling", "voting", "treasury"]
+  },
+  "storefront_onboarding": {
+    "name": "Marketplace Storefront Onboarding",
+    "price_usd": 1500,
+    "duration_weeks": 1,
+    "best_for": ["NFT marketplace", "early-stage", "onboarding"]
+  },
+  "enterprise_support_retainer": {
+    "name": "Enterprise Support Retainer",
+    "price_usd": 4000,
+    "duration_weeks": 4,
+    "best_for": ["existing customer", "enterprise", "ongoing support"]
+  }
+}

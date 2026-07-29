@@ -132,5 +132,6 @@ Week6_Day3/
 
 ## Author
 
-Imama Zubair
+*Imama Zubair*
+
 AI & Data Science Intern @ Netixsol

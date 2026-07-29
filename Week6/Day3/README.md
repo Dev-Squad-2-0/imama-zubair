@@ -62,6 +62,8 @@ Built a test set of 15 prompts covering:
 
 * Legitimate AFL questions
 * Off-topic requests
+* Prompt injection attempts
+* Mixed AFL and non-AFL questions
 * Ambiguous edge cases
 
 The agent stayed within its intended scope for every test and consistently refused unrelated requests while grounding factual responses in the retrieval tools.

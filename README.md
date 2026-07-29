@@ -54,6 +54,7 @@ Throughout this internship, I'll be exploring topics including:
 * Statistics for Data Science
 * Machine Learning
 * Model Training
+* Agent Building
 
 ...with many more topics to come! (ﾉ>ω<)ﾉ
 

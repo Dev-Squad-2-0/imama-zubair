@@ -24,14 +24,14 @@ My goal is not only to complete the assigned tasks but also to build a strong fo
 ```text
 imama-zubair/
 │
-├── Week-1/
-│   ├── Day-1/
-│   ├── Day-2/
+├── Week1/
+│   ├── Day1/
+│   ├── Day2/
 │   └── ...
 │
-├── Week-2/
-│   ├── Day-1/
-│   ├── Day-2/
+├── Week2/
+│   ├── Day1/
+│   ├── Day2/
 │   └── ...
 │
 └── README.md

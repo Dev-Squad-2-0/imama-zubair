@@ -177,7 +177,7 @@ Week6_Day2/
 │
 ├── team_match_features_v1_2026-07-27.csv
 ├── player_match_features_v1_2026-07-27.csv
-├── week6_day2_prediction_models.ipynb
+├── week6_day2_models.ipynb
 ├── predict.py
 ├── models/
 │   ├── match_winner_model.joblib

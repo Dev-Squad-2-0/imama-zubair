@@ -24,7 +24,7 @@ No new data was pulled in for this task. Everything reuses artifacts from earlie
 
 ---
 
-## Tasks Completed
+## Tasks
 
 ### **Task 1: Graph Design for the Full System**
 

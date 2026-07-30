@@ -1,5 +1,5 @@
 """
-afl_agent.py
+afl_chat_agent.py
 
 LangChain/LangGraph AFL chat agent.
 
@@ -12,16 +12,18 @@ Provides:
 
 Import this with:
 
-    from afl_agent import agent
+    from afl_chat_agent import agent
 """
 
 import joblib
 import pandas as pd
+import os
 
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
+
 
 # ------------------------------------------------------------------
 # LOAD DATA
@@ -33,6 +35,21 @@ team = pd.read_csv("team_match_features_v1_2026-07-27.csv")
 player["match_date"] = pd.to_datetime(player["match_date"])
 team["match_date"] = pd.to_datetime(team["match_date"])
 
+
+
+#-------------------------------------------------------------------
+#LLM
+#-------------------------------------------------------------------
+
+MODEL = "smart"
+
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(
+    model=MODEL,
+    base_url=os.environ["BASE_URL"],
+    api_key=os.environ["API_KEY"],
+)
 
 # ------------------------------------------------------------------
 # SYSTEM PROMPT

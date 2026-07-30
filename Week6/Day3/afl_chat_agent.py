@@ -17,11 +17,13 @@ Import this with:
 
 import joblib
 import pandas as pd
+import os
 
 from langchain_core.tools import tool
 from langchain_core.messages import SystemMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
+
 
 # ------------------------------------------------------------------
 # LOAD DATA

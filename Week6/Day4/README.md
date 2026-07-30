@@ -26,33 +26,205 @@ No new data was needed for this task. Everything reuses what was already built e
 
 ## Tasks
 
-### **Task 1: Graph Design for the Full System**
+# Day 4: LangGraph Agent Workflow
 
-Defined the state schema: `user_query`, `conversation_history`, `intent`, `entities`, `tool_result`, `error`, `needs_clarification`, `clarification_question`, `final_response`, and `trace` (a log of what each node did, used later to annotate runs). The graph is a router node that branches into retrieval, prediction, factual, or off-topic nodes, all converging through a validation node into a response formatting node.
+## Task 1: Graph Design for the Full System
 
-Why explicit routing instead of one free agent: a single agent decides tool use and wording on its own each turn, based on its system prompt, so a rule like "predictions must sound probabilistic" is only ever a suggestion the model has to remember. With LangGraph, every prediction goes through the same `prediction_node → validation_node → response_formatting_node` path every time, so the disclaimer and the validation check are guaranteed, not just hoped for.
+The first step was designing the complete LangGraph workflow and defining how information would move through the system. Instead of allowing a single LLM agent to decide everything on its own, the workflow was broken into dedicated nodes, each responsible for one specific task.
 
-### **Task 2: Building the Router Node**
+The graph state schema was designed to store all information required throughout execution. The following fields were included:
 
-Used a simple rule-based classifier instead of an LLM call, since four categories can be told apart reliably with keyword cues. A rule-based router is instant, free, deterministic, and easy to test. Built cue lists for prediction, retrieval, and off-topic language, plus a fallback check for AFL-related context so an unmatched query defaults to off-topic instead of quietly becoming factual.
+| State | Purpose |
+|-------|---------|
+| `user_query` | The user's current question. |
+| `conversation_history` | Previous conversation used for multi-turn context. |
+| `intent` | The routing decision made by the router node. |
+| `entities` | Extracted teams, players, or other AFL entities. |
+| `tool_result` | Output returned from retrieval or prediction tools. |
+| `error` | Any error encountered during execution. |
+| `needs_clarification` | Indicates whether additional user input is required. |
+| `clarification_question` | Question shown when clarification is needed. |
+| `final_response` | Final formatted response returned to the user. |
+| `trace` | Execution log recording what every node did, used later for debugging and annotations. |
 
-Tested on 20 varied queries and got 100% routing accuracy after one round of fixes. The first pass turned up a real bug (a keyword list name that didn't match, which would have crashed the classifier) and one real misroute (a "will X beat Y" phrasing where the team name sat between the two keywords). Both got fixed by adjusting the cue list.
+The workflow follows a structured execution path:
 
-### **Task 3: Wiring Prediction Models as LangGraph Tools**
+<img width="489" height="555" alt="graph" src="https://github.com/user-attachments/assets/76ef388e-d290-43e0-9935-f768a40d0472" />
 
-Wrapped `predict_match_winner` and `predict_top_player` as tools the prediction node can call. Built a team alias/nickname resolver (e.g. "Pies" → "Collingwood Magpies") with a fuzzy-match fallback for anything not in the nickname list, since the prediction models only accept exact team names. There's no live fixture feed, so "this week" resolves to each team or player's latest known rolling form instead, the same limitation flagged back on Day 2.
 
-Every prediction response includes the win probability (or predicted stat) plus a real, computed top-3 feature explanation: coefficient-based contributions for the match winner model (logistic regression), and feature importances for the player stat models (gradient boosting). Not just a generic description of what the model uses in general.
+This explicit routing was chosen instead of using a single autonomous agent.
 
-### **Task 4: Self-Correction & Fallbacks**
+A traditional LangChain agent decides which tool to call and how to respond entirely from its prompt. While instructions such as *"prediction responses must include a disclaimer"* can be written into the prompt, they remain recommendations that the model has to remember every time.
 
-Added a validation node after retrieval and prediction that checks whether the tool actually returned something usable. If a team or player can't be resolved, or the request is genuinely ambiguous (e.g. "who will win?" with no teams named), the graph asks for clarification instead of guessing. A separate fallback path catches requests for stat types the system doesn't model and says so directly, instead of making something up.
+With LangGraph, every prediction request always follows the same execution path:
 
-### **Task 5: End-to-End Testing**
+```text
+prediction_node
+        │
+        ▼
+validation_node
+        │
+        ▼
+response_formatting_node
+```
 
-Ran 10 full conversations through the compiled graph, covering retrieval, both prediction types, off-topic refusal, ambiguous input that needs clarification, and a multi-turn follow-up where the second message doesn't repeat the team names and the router has to pull them from the saved state. Logged and annotated the full state trace (router decision → tool called → validation → final response) for 3 representative runs.
+Because every prediction passes through these nodes, validation checks and probabilistic disclaimers are enforced by the graph itself rather than relying on the model to remember them. This makes the workflow deterministic, easier to debug, and much more reliable.
 
-Compared to a single monolithic LangChain agent: routing every prediction through the same validation and formatting nodes makes the probabilistic disclaimer and the clarify-over-guess behavior guaranteed by design, instead of depending on the model remembering the rule each turn. It also made debugging easier, since a misroute points to one specific place to fix (the router's cue list) instead of digging through a full agent reasoning trace.
+---
+
+## Task 2: Building the Router Node
+
+The router node determines which workflow branch should handle each user query.
+
+Rather than using another LLM call, a lightweight rule-based classifier was implemented. Since the system only needs to distinguish between four categories, keyword matching was sufficient while also being significantly faster and completely deterministic.
+
+The router classifies every query into one of four intents:
+
+- Prediction
+- Retrieval
+- Factual
+- Off-topic
+
+Separate keyword cue lists were created for prediction, retrieval, and off-topic language. If a query did not match any explicit cues, an additional AFL context check was performed before deciding whether it should be treated as factual or off-topic. This prevents unrelated questions from accidentally entering the factual pipeline.
+
+Using a rule-based approach provides several advantages:
+
+- Instant execution with no additional LLM calls.
+- No API cost.
+- Deterministic behaviour where identical inputs always produce identical outputs.
+- Easy debugging by simply updating keyword lists instead of modifying prompts.
+
+The router was evaluated using 20 manually created test queries covering all supported intents.
+
+After one round of improvements, the router achieved **100% routing accuracy**.
+
+Testing also uncovered two genuine implementation issues:
+
+- A keyword list variable had been referenced with the wrong name, which would have caused the classifier to crash.
+- The initial prediction pattern failed on questions such as **"Will X beat Y?"** because the team name appeared between the keywords.
+
+Both issues were resolved by correcting the keyword mappings and expanding the cue patterns to cover additional phrasing.
+
+---
+
+## Task 3: Wiring Prediction Models as LangGraph Tools
+
+The prediction models developed earlier in the project were wrapped as LangGraph tools so they could be called directly from the prediction node.
+
+Two prediction tools were integrated:
+
+- `predict_match_winner`
+- `predict_top_player`
+
+Since the prediction models only accept official team names, an additional preprocessing layer was added to resolve user input before inference.
+
+This resolver supports:
+
+- Common team nicknames (e.g. **"Pies" → "Collingwood Magpies"**)
+- Team aliases
+- Fuzzy string matching as a fallback for misspellings or unknown variations
+
+This makes the prediction tools much more tolerant of natural user language.
+
+The system also accounts for a known project limitation. Since there is no live AFL fixture feed available, requests such as *"this week"* cannot reference future scheduled matches.
+
+Instead, these requests are resolved using each team's or player's latest available rolling form, matching the same limitation identified during Day 2.
+
+Prediction responses include more than just the final output.
+
+Every prediction returns:
+
+- The predicted winner or player statistic.
+- The corresponding probability or predicted value.
+- A computed explanation showing the three most influential features used by the model.
+
+These explanations are generated directly from the trained models rather than using generic descriptions.
+
+Specifically:
+
+- Match winner predictions use coefficient-based feature contributions from the Logistic Regression model.
+- Player statistic predictions use feature importances from the Gradient Boosting models.
+
+This allows every prediction to explain *why* the model reached its conclusion instead of only reporting the result.
+
+---
+
+## Task 4: Self-Correction and Fallbacks
+
+To improve reliability, a validation node was placed immediately after both retrieval and prediction branches.
+
+Its responsibility is to verify that each tool successfully produced usable output before the response is returned.
+
+Several validation checks were implemented.
+
+If a team or player cannot be matched successfully, the graph does not attempt to guess.
+
+Instead, it asks the user for clarification.
+
+For example:
+
+> "Who will win?"
+
+does not provide enough information to make a prediction because no teams are specified.
+
+Rather than hallucinating an answer, the workflow sets `needs_clarification` and returns a clarification question requesting the missing teams.
+
+Additional fallback logic was also implemented.
+
+If the user requests a player statistic that the trained models do not support, the graph explicitly explains that the statistic is unavailable instead of fabricating a prediction.
+
+These validation and fallback mechanisms ensure that every prediction returned by the system is based on valid model inputs rather than assumptions.
+
+---
+
+## Task 5: End-to-End Testing
+
+The completed workflow was evaluated by running ten complete conversations through the compiled LangGraph.
+
+The evaluation covered every major execution path:
+
+- Retrieval queries
+- Match winner predictions
+- Player statistic predictions
+- Off-topic requests
+- Ambiguous questions requiring clarification
+- Multi-turn conversations using stored conversation state
+
+One of the multi-turn tests specifically verified that previously mentioned team names could be recovered from `conversation_history`, allowing the second user message to omit them while still producing the correct prediction.
+
+For debugging and documentation, the complete execution trace was logged for representative conversations.
+
+Each trace records the sequence of graph execution, including:
+
+```text
+Router Decision
+        │
+        ▼
+Tool Invocation
+        │
+        ▼
+Validation
+        │
+        ▼
+Response Formatting
+        │
+        ▼
+Final Response
+```
+
+These traces make it easy to identify exactly where a failure occurs within the workflow.
+
+Finally, the completed LangGraph implementation was compared with a traditional monolithic LangChain agent.
+
+The graph-based workflow provides several advantages:
+
+- Every prediction automatically passes through the same validation and formatting pipeline.
+- Probabilistic disclaimers are guaranteed rather than relying on prompt instructions.
+- Clarification is requested whenever information is missing instead of allowing the model to guess.
+- Debugging is significantly simpler because routing errors can be traced directly to the router node instead of analysing an entire agent reasoning chain.
+- The modular node structure also makes future extensions easier, since new capabilities can be added as independent nodes without redesigning the entire workflow.
+
+Overall, the LangGraph architecture provides a more reliable, maintainable, and deterministic solution than a single free-form agent while preserving the same end-user functionality.
 
 ---
 

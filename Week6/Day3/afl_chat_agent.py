@@ -34,6 +34,21 @@ player["match_date"] = pd.to_datetime(player["match_date"])
 team["match_date"] = pd.to_datetime(team["match_date"])
 
 
+
+#-------------------------------------------------------------------
+#LLM
+#-------------------------------------------------------------------
+
+MODEL = "smart"
+
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(
+    model=MODEL,
+    base_url=os.environ["BASE_URL"],
+    api_key=os.environ["API_KEY"],
+)
+
 # ------------------------------------------------------------------
 # SYSTEM PROMPT
 # ------------------------------------------------------------------

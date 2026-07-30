@@ -101,6 +101,19 @@ Everything from the notebook was extracted into this standalone module so the gr
 
 ---
 
+### Example Usage
+
+```python
+from afl_langgraph_agent import run_turn
+
+response = run_turn(
+    "Will the Pies beat the Cats this week?",
+    thread_id="demo"
+)
+
+print(response["final_response"])
+```
+
 ## Technologies Used
 - Python
 - Pandas

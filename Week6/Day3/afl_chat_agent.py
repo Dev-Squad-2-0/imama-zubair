@@ -1,5 +1,5 @@
 """
-afl_agent.py
+afl_chat_agent.py
 
 LangChain/LangGraph AFL chat agent.
 
@@ -12,7 +12,7 @@ Provides:
 
 Import this with:
 
-    from afl_agent import agent
+    from afl_chat_agent import agent
 """
 
 import joblib

@@ -1,0 +1,21 @@
+,Query,Expected,Predicted,Result
+0,Who will win Richmond Tigers vs Carlton Blues?,prediction,prediction,PASS
+1,Will Collingwood beat Geelong?,prediction,prediction,PASS
+2,Who will top score for Brisbane Lions?,prediction,prediction,PASS
+3,Predict the winner of Sydney Swans vs Hawthorn.,prediction,prediction,PASS
+4,Show me Patrick Cripps' recent stats.,retrieval,retrieval,PASS
+5,What were Nick Daicos' stats last round?,retrieval,retrieval,PASS
+6,What's Carlton's record against Richmond?,retrieval,retrieval,PASS
+7,How many disposals does Patrick Cripps average?,retrieval,retrieval,PASS
+8,Tell me about the Richmond Tigers.,factual,factual,PASS
+9,How many teams are in the AFL?,factual,factual,PASS
+10,Explain the AFL finals system.,factual,factual,PASS
+11,When was the AFL founded?,factual,factual,PASS
+12,What's today's weather?,off_topic,off_topic,PASS
+13,Tell me a joke.,off_topic,off_topic,PASS
+14,Write me a Python program.,off_topic,off_topic,PASS
+15,Who won the FIFA World Cup?,off_topic,off_topic,PASS
+16,Recommend a pizza place.,off_topic,off_topic,PASS
+17,What's the capital of France?,off_topic,off_topic,PASS
+18,Who won the Super Bowl?,off_topic,off_topic,PASS
+19,What's the stock market doing today?,off_topic,off_topic,PASS

@@ -24,9 +24,8 @@ No new data was needed for this task. Everything reuses what was already built e
 
 ---
 
-## Tasks
+## **Tasks**
 
-# Day 4: LangGraph Agent Workflow
 
 ## Task 1: Graph Design for the Full System
 

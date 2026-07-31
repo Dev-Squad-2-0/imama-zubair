@@ -1,0 +1,11 @@
+{
+  "holdout_n": 860,
+  "holdout_start": "2020-07-16",
+  "holdout_end": "2025-09-27",
+  "model_accuracy": 0.663,
+  "model_f1": 0.734,
+  "baseline_ladder_accuracy": 0.658,
+  "baseline_ladder_f1": 0.694,
+  "majority_home_win_rate": 0.553,
+  "prob_ladder_gap_corr": 0.9
+}

@@ -1,0 +1,12 @@
+flowchart TD
+    A[Greeting] --> B[Identify Intent: Investment]
+    B --> C[Ask: Budget Range, Expected ROI Timeline, Risk Appetite]
+    C --> D[RAG Search: High ROI / Growth Area Properties]
+    D --> E[Present Options with Price Trend Info]
+    E --> F{Interested?}
+    F -- Yes --> G[Offer Detailed Investment Consultation Call]
+    G --> H[Book Appointment with Investment Advisor]
+    H --> I[Send Confirmation Email]
+    I --> J[Log to CRM]
+    F -- No --> K[Ask What ROI/Area They Expected]
+    K --> C

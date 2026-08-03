@@ -1,0 +1,15 @@
+flowchart TD
+    A[Greeting] --> B[Identify Intent: Buying]
+    B --> C[Ask: Location, Budget, Property Type]
+    C --> D[RAG Search: Matching Properties]
+    D --> E{Matches Found?}
+    E -- Yes --> F[Present 2-3 Top Options]
+    E -- No --> G[Adjust Criteria / Widen Search]
+    G --> D
+    F --> H{Customer Interested?}
+    H -- Yes --> I[Offer Site Visit]
+    I --> J[Book Appointment]
+    J --> K[Send Email Confirmation]
+    K --> L[Log to CRM]
+    H -- No --> M[Ask What They Are Looking For Instead]
+    M --> C

@@ -1,0 +1,15 @@
+flowchart TD
+    A[Greeting] --> B[Identify Intent: Reschedule]
+    B --> C[Look Up Existing Appointment via CRM/Calendar]
+    C --> D{Appointment Found?}
+    D -- No --> E[Ask for Details / Confirm Phone Number]
+    E --> C
+    D -- Yes --> F[Confirm Current Appointment Details]
+    F --> G[Ask for New Preferred Time]
+    G --> H[Check Google Calendar Availability]
+    H --> I{Slot Available?}
+    I -- Yes --> J[Update Calendar Event]
+    I -- No --> K[Offer Alternative Slots]
+    K --> G
+    J --> L[Send Updated Confirmation Email]
+    L --> M[Log Change to CRM]

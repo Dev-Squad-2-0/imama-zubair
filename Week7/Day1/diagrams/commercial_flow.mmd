@@ -1,0 +1,15 @@
+flowchart TD
+    A[Greeting] --> B[Identify Intent: Commercial]
+    B --> C[Ask: Purpose - Office/Shop/Warehouse]
+    C --> D[Ask: Location, Size Needed, Budget]
+    D --> E[RAG Search: Commercial Listings]
+    E --> F{Matches Found?}
+    F -- Yes --> G[Present Options with Zoning/Usage Info]
+    F -- No --> H[Suggest Nearby Areas or Similar Category]
+    H --> E
+    G --> I{Interested?}
+    I -- Yes --> J[Book Site Visit or Call with Agent]
+    J --> K[Send Confirmation Email]
+    K --> L[Log to CRM]
+    I -- No --> M[Ask for Specific Requirements]
+    M --> D

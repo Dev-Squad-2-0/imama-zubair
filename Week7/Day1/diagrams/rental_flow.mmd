@@ -1,0 +1,14 @@
+flowchart TD
+    A[Greeting] --> B[Identify Intent: Renting]
+    B --> C[Ask: Location, Budget, Family Size, Move-in Date]
+    C --> D[RAG Search: Rental Listings]
+    D --> E{Matches Found?}
+    E -- Yes --> F[Present Options with Rent + Deposit Terms]
+    E -- No --> G[Ask if Flexible on Location/Budget]
+    G --> D
+    F --> H{Interested?}
+    H -- Yes --> I[Book Viewing]
+    I --> J[Confirm via Email]
+    J --> K[Log to CRM]
+    H -- No --> L[Note Preference, Offer to Follow Up Later]
+    L --> K

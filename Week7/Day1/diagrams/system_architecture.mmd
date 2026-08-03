@@ -1,0 +1,19 @@
+flowchart TD
+    A[Incoming Call - Telephony/Twilio] --> B[Streaming STT - Deepgram]
+    B --> C[LangGraph Orchestrator]
+    C --> D[LLM Reasoning - GPT/Claude/Gemini]
+    D --> E{Needs Tool or Retrieval?}
+    E -- Yes, property question --> F[RAG - Vector DB / ChromaDB]
+    E -- Yes, action needed --> G[Tool Calling Layer]
+    G --> G1[Google Calendar API]
+    G --> G2[Email/Gmail API]
+    G --> G3[CRM Database - PostgreSQL]
+    E -- No, direct reply --> H[Response Generation]
+    F --> H
+    G1 --> H
+    G2 --> H
+    G3 --> H
+    H --> I[Short + Long Term Memory Update]
+    I --> J[TTS - Fish Audio]
+    J --> K[Streaming Audio back to Caller]
+    K --> A

@@ -1,0 +1,10 @@
+flowchart TD
+    A[Greeting] --> B[Identify Caller via Phone Number]
+    B --> C[Pull Customer History from CRM]
+    C --> D[Reference Past Interaction]
+    D --> E[Ask: Continuing Previous Search or New Request?]
+    E -- Continuing --> F[Resume from Last Known Preferences]
+    E -- New Request --> G[Start Fresh Intent Detection]
+    F --> H[Proceed with Relevant Flow]
+    G --> H
+    H --> I[Log Updated Interaction to CRM]

@@ -1,0 +1,12 @@
+flowchart TD
+    A[Greeting] --> B[Identify Intent: Cancel]
+    B --> C[Look Up Existing Appointment]
+    C --> D{Appointment Found?}
+    D -- No --> E[Ask for Details / Confirm Identity]
+    E --> C
+    D -- Yes --> F[Confirm Which Appointment to Cancel]
+    F --> G[Ask Reason - Optional]
+    G --> H[Cancel Calendar Event]
+    H --> I[Send Cancellation Confirmation Email]
+    I --> J[Log Cancellation to CRM]
+    J --> K[Offer to Reschedule Instead]

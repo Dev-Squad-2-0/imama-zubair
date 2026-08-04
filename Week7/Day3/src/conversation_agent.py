@@ -12,11 +12,10 @@ into one turn-taking conversation agent.
 """
 
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__)))), "week-7-day-2", "src"))
 
 from conversation_memory import ConversationMemory
 from objection_handler import detect_objection, build_strategy, should_stop_pushing
@@ -25,7 +24,6 @@ from voice_pipeline import run_voice_turn
 
 import recommendation_engine  # Day 2
 from structured_retrieval import get_property_by_id  # Day 2
-import structured_retrieval # Day 2
 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -57,6 +55,17 @@ def _format_price(pkr: int) -> str:
         parts.append(f"{lakh} lakh")
     return " ".join(parts) if parts else f"{pkr} PKR"
 
+
+def _extract_mentioned_property_id(customer_text: str) -> int | None:
+    """Picks up an explicit property reference like "property 15" or
+    "property #15" in the customer's text, so a direct follow-up question
+    ("tell me more about property 15") can be answered with exact structured
+    data. get_property_by_id() takes an int id, not free text, so this is
+    needed before calling it — most turns won't mention an id at all and
+    that's expected (recommend_properties() already covers the general
+    "what's available" case)."""
+    m = re.search(r"property\s*(?:number|no\.?|#)?\s*(\d+)", customer_text.lower())
+    return int(m.group(1)) if m else None
 
 
 def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str, bool]:
@@ -118,9 +127,9 @@ def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str
     for turn in memory.history[-10:]
 )
     property_info = None
-    pid = get_property_by_id(customer_text)
-    if pid:
-        property_info = structured_retrieval.get_property_by_id(pid)
+    pid = _extract_mentioned_property_id(customer_text)
+    if pid is not None:
+        property_info = get_property_by_id(pid)
 
     memory_context = f"""
         Budget: {memory.slots.budget}
@@ -168,6 +177,12 @@ def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str
     - If multiple properties match, recommend the strongest one first and briefly mention alternatives.
     - Handle objections naturally instead of arguing.
     - Keep replies under 120 words unless the customer explicitly asks for more detail.
+    - This reply is spoken aloud by text-to-speech, not read on screen: write in
+      plain flowing spoken sentences only. Never use markdown (no **bold**,
+      no numbered or bulleted lists), never use emojis or emoticons.
+    - Write only in Roman Urdu/English (UrduLish) or Urdu script mixed with
+      English, matching the persona's examples. Never use Devanagari/Hindi
+      script — this is a Pakistani Urdu voice, it cannot speak Devanagari.
         """
 
     print("\n===== PROMPT SENT TO LLM =====")
@@ -193,13 +208,9 @@ def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str
         
         reply = response.choices[0].message.content.strip()
         return reply, True
-        # print("\n===== LLM RESPONSE =====")
-        # print(reply)
     except Exception as e:
-
         print("\n========== LLM ERROR ==========")
         print(e)
-        raise
         return (
             "Maazrat, iss waqt system temporarily unavailable hai. "
             "Thori dair baad dobara try karein.",

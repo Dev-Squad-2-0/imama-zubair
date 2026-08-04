@@ -101,7 +101,7 @@ def main():
         per_scenario_latency[name] = latencies
 
     out_path = os.path.join(OUT_DIR, "sample_transcripts.md")
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(full_output))
 
     summary = {

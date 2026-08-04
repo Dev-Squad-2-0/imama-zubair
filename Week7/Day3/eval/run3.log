@@ -1,0 +1,144 @@
+NoneType: None
+Using Edge TTS voice: ur-PK-AsadNeural (set EDGE_TTS_VOICE in .env to change)
+
+===== PROMPT SENT TO LLM =====
+
+        Customer Message:
+        Assalam o alaikum, mujhe Lahore mein ghar dekhna hai.
+
+        Conversation Memory:
+        
+        Budget: None
+        City: Lahore
+        Area: None
+        Bedrooms: None
+        Purpose: None
+        Declines: 0
+        
+
+        Detected Objection:
+        None
+
+        Objection Strategy:
+        None
+
+        Recommended Properties:
+        - 2 Marla Apartment in Johar Town, Lahore
+  Price: 83 lakh
+  Bedrooms: 3
+  Location: Lahore - Johar Town
+  Amenities: Shopping Mall Access, Solar Panels, Community Park
+- 1 Marla Shop in DHA Phase 6, Lahore
+  Price: 62 lakh
+  Bedrooms: 0
+  Location: Lahore - DHA Phase 6
+  Amenities: Mosque, Underground Electricity, Shopping Mall Access, Covered Parking, Swimming Pool
+- 12 Marla House in Wapda Town, Lahore
+  Price: 3 crore 31 lakh
+  Bedrooms: 3
+  Location: Lahore - Wapda Town
+  Amenities: Underground Electricity, Backup Generator, Swimming Pool, Wide Roads, Shopping Mall Access
+
+        Property Information:
+        None
+
+        Conversation History:
+        Customer: Assalam o alaikum, mujhe Lahore mein ghar dekhna hai.
+
+        Instructions:
+
+    - Use ONLY the provided property information.
+    - Never invent prices, amenities or availability.
+    - If information is unavailable, say so honestly.
+    - Maintain conversation continuity using the memory.
+    - Respond in natural Pakistani Urdulish.
+    - Sound like an experienced but friendly real estate sales executive.
+    - Keep responses conversational instead of robotic.
+    - If multiple properties match, recommend the strongest one first and briefly mention alternatives.
+    - Handle objections naturally instead of arguing.
+    - Keep replies under 120 words unless the customer explicitly asks for more detail.
+        
+================================================================================
+TTS INPUT:
+'Zara rukiye, main confirm kar ke batata hoon.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Assalam-o-Alaikum sir!'
+================================================================================
+================================================================================
+TTS INPUT:
+'Lahore mein aap ka ghar dekhna ka request mil gaya.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Sab se pehle, 2\u202fMarla Apartment Johar Town ek accha option lagta hai – price 83\u202flakh, 3\u202fbedrooms, shopping‑mall access, solar panels aur community park ke saath.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Agar aap thoda bada ya thoda premium dekhna chahein, 12\u202fMarla House Wapda Town bhi available hai, lekin price 3\u202fcrore\u202f31\u202flakh hai.'
+================================================================================
+================================================================================
+TTS INPUT:
+'(Shop option DHA Phase\u202f6 sirf commercial ke liye hai, isliye shayad aap ke liye suitable nahi).'
+================================================================================
+================================================================================
+TTS INPUT:
+'Abhi aap se thodi aur details le sakun?'
+================================================================================
+================================================================================
+TTS INPUT:
+'Jaise aap ka budget range, preferred area ya bedrooms ki requirement.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Taake main aap ko behtar match suggest kar sakun.'
+================================================================================
+================================================================================
+TTS INPUT:
+'धन्यवाद!'
+================================================================================
+  [edge-tts] attempt 1/3 failed (No audio was received. Please verify that your parameters are correct.), retrying in 0.5s...
+  [edge-tts] attempt 2/3 failed (No audio was received. Please verify that your parameters are correct.), retrying in 1.0s...
+Traceback (most recent call last):
+  File "E:\repos\NETIXSOL\imama-zubair\Week7\Day3\src\voice_pipeline.py", line 461, in tts_stream_audio
+    audio_bytes, latency_ms = asyncio.run(_edge_tts_collect(text, voice))
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imama\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\imama\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\imama\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 653, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "E:\repos\NETIXSOL\imama-zubair\Week7\Day3\src\voice_pipeline.py", line 386, in _edge_tts_collect
+    async for chunk in communicate.stream():
+  File "E:\repos\NETIXSOL\imama-zubair\Week7\.venv\Lib\site-packages\edge_tts\communicate.py", line 588, in stream
+    async for message in self.__stream():
+  File "E:\repos\NETIXSOL\imama-zubair\Week7\.venv\Lib\site-packages\edge_tts\communicate.py", line 562, in __stream
+    raise NoAudioReceived(
+edge_tts.exceptions.NoAudioReceived: No audio was received. Please verify that your parameters are correct.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\repos\NETIXSOL\imama-zubair\Week7\Day3\eval\sample_conversations.py", line 124, in <module>
+    main()
+  File "E:\repos\NETIXSOL\imama-zubair\Week7\Day3\eval\sample_conversations.py", line 97, in main
+    text, latencies = run_scenario(name, turns)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\repos\NETIXSOL\imama-zubair\Week7\Day3\eval\sample_conversations.py", line 73, in run_scenario
+    spoken, report = run_turn(t, memory, behaviors)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\repos\NETIXSOL\imama-zubair\Week7\Day3\eval\..\src\conversation_agent.py", line 237, in run_turn
+    report, sentences = run_voice_turn(customer_text, spoken_text)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\repos\NETIXSOL\imama-zubair\Week7\Day3\src\voice_pipeline.py", line 724, in run_voice_turn
+    audio_bytes, tts_ms = tts_stream_audio(sentence)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\repos\NETIXSOL\imama-zubair\Week7\Day3\src\voice_pipeline.py", line 474, in tts_stream_audio
+    raise RuntimeError(f"Edge TTS failed after {EDGE_TTS_MAX_RETRIES} attempts: {last_error}") from last_error
+RuntimeError: Edge TTS failed after 3 attempts: No audio was received. Please verify that your parameters are correct.
+EXIT_CODE=1

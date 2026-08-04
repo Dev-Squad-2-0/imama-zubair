@@ -1,15 +1,13 @@
 # Day 3 - Task 5: Human Evaluation Rubric
 
-Scoring rubric for the sample call transcripts in `outputs/sample_transcripts.md`.
-Each category is scored 1-5. This is meant to be filled in by a human listener
-(supervisor or intern) after reading/listening to a transcript, same as
-`eval/hallucination_results.md` scoring worked in Day 2.
+Scoring rubric for `outputs/sample_transcripts.md`. Scored 1-5 per category,
+same idea as `eval/hallucination_results.md` in Day 2.
 
-Note on scope: real audio isn't available in this environment (no live
-Deepgram/Fish Audio/Twilio credentials), so "naturalness" and "fluency" here
-are scored against the TEXT that would be spoken, and "latency" is scored
-against the simulated timing report attached to each turn. Once this runs on
-real telephony, the same rubric applies directly to recorded call audio.
+This is a self-evaluation by reading the transcripts, not an independent
+listener — flagged for supervisor review rather than treated as final.
+
+Everything scored here is from a **real run**: real LLM replies, real Edge
+TTS latency numbers. Nothing in this file is simulated.
 
 ## Categories
 
@@ -23,53 +21,58 @@ real telephony, the same rubric applies directly to recorded call audio.
 
 ## Scored Results
 
-Scores below were produced by reading through `outputs/sample_transcripts.md`
-turn by turn. This is a first-pass self-evaluation against the rubric above;
-flagged for supervisor review rather than treated as final, since a fully
-independent human listener (not the system's own builder) is what the rubric
-is really designed for.
-
 | Scenario | Naturalness | Persuasiveness | Fluency | Latency | Conversation Flow | Notes |
 |---|:-:|:-:|:-:|:-:|:-:|---|
-| 1. Budget + area memory | 3 | 3 | 4 | 5 | 5 | Correctly tracked budget -> area -> "sasti" (cheaper) reference across 4 turns. Reply phrasing repeats "Ji bilkul sir, is waqt hamare paas N options hain" almost verbatim each time — needs more template variation. |
-| 2. Price objection + double decline | 4 | 4 | 4 | 5 | 5 | Objection acknowledged before pivoting to an alternative. Correctly stopped pushing after the second decline instead of continuing to sell. |
-| 3. Investment guardrail | 4 | 3 | 4 | 5 | 5 | Correctly refused to guarantee a return and offered a human advisor handoff, matching the hard guardrail in system_prompt.md. Persuasiveness scored lower on purpose here — the guardrail intentionally limits how persuasive this turn can be. |
-| 4. Trust + builder + maintenance | 3 | 3 | 4 | 5 | 4 | Handled trust and maintenance concerns without inventing numbers. Both objection replies reused the identical generic template — this is the clearest gap: category-specific objections should not sound the same. |
-| 5. Interruption mid-call | 4 | 3 | 4 | 5 | 5 | Barge-in handled cleanly ("Ji, main sun raha hoon"), and the corrected budget from after the interruption was picked up correctly in the next turn's recommendation. |
+| 1. Budget + area memory | 4 | 4 | 5 | 3 | 5 | Correctly tracked budget -> area -> "sasti" (cheaper) across all 4 turns, and each reply genuinely varies (different properties led with each time, not a repeated template). Turn 4 opens with "Dekhiye... Zara rukiye, main confirm kar ke batata hoon." — filler and hesitation phrase stacked together, a bit much for one line. |
+| 2. Price objection + double decline | 4 | 4 | 4 | 3 | 5 | Price objection acknowledged before pivoting to a cheaper alternative, with a real reason given (amenities, demand). Correctly stopped pushing after the second "no thanks" — that farewell line is a fixed template on purpose, since it's a hard guardrail, not something worth leaving to LLM phrasing variance. |
+| 3. Investment guardrail | 4 | 3 | 4 | 3 | 5 | Refused a guaranteed-profit number and offered a human advisor handoff, matching the hard guardrail in `system_prompt.md`. Persuasiveness is lower on purpose here — the guardrail limits how hard this turn can push. This scenario's second turn hit 1906ms, the closest any turn came to the 2000ms budget. |
+| 4. Trust + builder + maintenance | 4 | 4 | 4 | 3 | 4 | Trust and maintenance objections now get distinct replies (verified listings + agent contact for trust; "I'll confirm and follow up" instead of guessing, for maintenance) — this used to be the same generic template for both, now it isn't. |
+| 5. Interruption mid-call | 4 | 3 | 4 | 3 | 5 | Barge-in handled cleanly ("Sorry sir, aap boliye pehle."), and the budget correction given right after the interruption was picked up correctly in the very next recommendation. |
 
 ## Average Scores
 
 | Category | Average |
 |---|:-:|
-| Naturalness | 3.6 / 5 |
-| Persuasiveness | 3.2 / 5 |
-| Fluency | 4.0 / 5 |
-| Latency | 5.0 / 5 |
-| Conversation Flow | 4.8 / 5 |
+| Naturalness | 4.0 / 5 |
+| Persuasiveness | 4.0 / 5 |
+| Fluency | 4.4 / 5 |
+| Latency | 3.0 / 5 |
+| Conversation Flow | 5.0 / 5 |
+
+Latency is capped at 3 across the board even though every scripted turn
+came in under budget (766-1906ms, see `outputs/latency_summary.json`) —
+that number only covers TTS, since this eval path skips STT by design (see
+the README). Run against real audio instead of scripted text, real
+Deepgram STT took 4.4-7.2s by itself, over budget before TTS even starts.
+And neither number includes how long the LLM takes to think, since that
+call is blocking today. So "latency" here is honestly more like "TTS was
+fast," not "the caller waited under 2 seconds" — see the README's Task 1
+section for the fix (streaming the LLM call, switching Deepgram to its
+streaming endpoint).
 
 ## Honest Gaps Found During Evaluation
 
-- **Reply template repetition** is the biggest issue: `_compose_reply()` in
-  `conversation_agent.py` currently builds text from a small set of fixed
-  templates. This is intentional for Day 3 (no LLM call yet, keeps the demo
-  runnable without API credentials), but it's exactly why Naturalness and
-  Persuasiveness scored lower than Latency and Flow. Once this is wired to
-  a real LLM call, the same slots/strategy data should produce more varied
-  phrasing per call.
-- **Trust and maintenance objections currently share one fallback template.**
-  Task 4 correctly classifies both categories separately in
-  `objection_handler.py`, but `conversation_agent.py`'s reply composer only
-  special-cases the "price" category. This is flagged, not silently ignored.
-- **Latency numbers are simulated**, not measured against real Deepgram/Fish
-  Audio/Twilio calls. The pipeline shape and budget math are real (see
-  `src/voice_pipeline.py` docstring for the latency budget breakdown), but
-  actual numbers need to be re-measured once real API credentials are wired
-  in.
+- **Latency as measured doesn't reflect what a caller actually experiences.**
+  Covered above — it's the main reason Latency isn't scored higher despite
+  a perfect on-paper budget record.
+- **Filler + hesitation can stack on the same turn** (scenario 1, turn 4),
+  since both are gated on the same "a tool call is happening" condition.
+  Sounds a little over-eager. Worth tuning so at most one fires per turn.
+- **`rag_pipeline.py` (brochures/descriptions/FAQs) isn't wired into the
+  live reply**, so anything outside structured SQL fields — general company
+  FAQs, more descriptive brochure language for trust/location objections —
+  isn't grounded in retrieved text, it's whatever the LLM already knows.
+  Didn't come up as a wrong answer in these 5 scenarios, but it's a gap for
+  broader coverage.
+- **This is still a self-evaluation**, not an independent listener. The
+  numbers above are a reasonable first pass, but the rubric is really
+  designed for someone who didn't build the system to score it.
 
 ## Next Step for Day 4+
 
-Replace the template-based `_compose_reply()` with a real LLM call
-(LangGraph node) that takes the same inputs already being computed here —
-conversation slots, retrieved structured facts, objection strategy — as
-context. Everything else in the Day 3 pipeline (memory, objection detection,
-speech behaviors, latency streaming) stays the same.
+The reply generation itself is real now — the actual next step is closing
+the latency gap: stream the LLM call (`generate_llm_reply_stream()` already
+exists, just isn't wired in) so TTS starts on the first sentence instead of
+waiting for the whole reply, and switch Deepgram to its streaming endpoint
+instead of the batch one. Everything else (memory, objection detection,
+speech behaviors) is already running for real and doesn't need to change.

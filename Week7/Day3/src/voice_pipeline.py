@@ -82,6 +82,7 @@ can be dropped in without touching the rest of the pipeline):
 
 import os
 import re
+import sys
 import time
 import traceback
 import requests
@@ -94,10 +95,30 @@ from deepgram import DeepgramClient, PrerecordedOptions, FileSource
 
 load_dotenv()
 
+# Replies are natural Urdu/UrduLish and routinely contain characters outside
+# cp1252 (Windows' default console/file encoding), e.g. non-breaking hyphens
+# or Urdu script the LLM sometimes mixes in. Printing/writing that text with
+# the default locale encoding raises UnicodeEncodeError mid-call instead of
+# just displaying it, so stdout/stderr are reconfigured to UTF-8 up front.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 SAMPLE_AUDIO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sample_audio")
 GENERATED_AUDIO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "generated_audio")
+# Separate from GENERATED_AUDIO_DIR on purpose: run_voice_turn()'s turn_NNN
+# filenames come from a per-process counter that restarts at turn_001 every
+# run, so a standalone `python voice_pipeline.py` run (this file's own
+# offline test / --single demo) would otherwise silently overwrite whatever
+# eval/sample_conversations.py's live-call-path run left in GENERATED_AUDIO_DIR.
+OFFLINE_TEST_AUDIO_DIR = os.path.join(GENERATED_AUDIO_DIR, "offline_test")
 
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
+# nova-3 supports Urdu natively (language=ur) — without this, transcribe_file()
+# defaults to English and returns empty/garbled transcripts for Urdu-script
+# audio (confirmed against sample_audio/: every file transcribed as '' or a
+# handful of wrong English words until this was set).
+DEEPGRAM_LANGUAGE = os.getenv("DEEPGRAM_LANGUAGE", "ur")
 FISH_API_KEY = os.getenv("FISH_AUDIO_API_KEY")  # currently unused, kept for Fish Audio restoration
 FISH_VOICE_ID = os.getenv("FISH_VOICE_ID", "")  # reference_id of the cloned/selected voice, unused for now
 BASE_URL = os.getenv("BASE_URL")
@@ -108,11 +129,11 @@ API_KEY = os.getenv("API_KEY")
 # isn't set yet in a given environment (e.g. running just the memory/objection
 # demos), while still failing loudly with a clear error the moment a function
 # that actually needs that client gets called.
-_deepgram_client = DeepgramClient(api_key=DEEPGRAM_API_KEY)
+_deepgram_client: Optional[DeepgramClient] = None
 _llm_client = None
 
 
-def _get_deepgram_client() -> _deepgram_client:
+def _get_deepgram_client() -> DeepgramClient:
     global _deepgram_client
     if _deepgram_client is None:
         if not DEEPGRAM_API_KEY:
@@ -120,7 +141,7 @@ def _get_deepgram_client() -> _deepgram_client:
                 "DEEPGRAM_API_KEY is not set. Set it in your .env before calling "
                 "any STT function."
             )
-        _deepgram_client = _deepgram_client(api_key=DEEPGRAM_API_KEY)
+        _deepgram_client = DeepgramClient(api_key=DEEPGRAM_API_KEY)
     return _deepgram_client
 
 
@@ -180,16 +201,15 @@ def stt_transcribe(audio_bytes: bytes, mimetype: str = "audio/wav"):
     caller audio already captured by the telephony layer, not a live
     in-progress stream). Returns (transcript, latency_ms).
 
-    Verified against deepgram-sdk 7.6.0 directly (its call shape changed
-    from older SDK versions — this is `client.listen.v1.media.transcribe_file()`,
-    not the `listen.rest.v("1").transcribe_file(payload, options)` /
-    `PrerecordedOptions` / `FileSource` shape from the older v2/v3 SDK).
-    `mimetype` is passed through as a `content-type` header override
-    (`request_options={"additional_headers": {...}}`) since this SDK
-    version sends `application/octet-stream` by default for raw bytes;
-    Deepgram's backend can usually still sniff common containers like WAV/MP3
-    correctly either way, but passing the real content-type is more correct
-    when it's known (e.g. loaded from a file with a known extension).
+    Verified against deepgram-sdk 3.7.7 (the version pinned in
+    requirements.txt) — this is `client.listen.rest.v("1").transcribe_file()`
+    with `PrerecordedOptions` / `FileSource`, the correct call shape for this
+    SDK version. `mimetype` is passed through as a `Content-Type` header
+    override (via `transcribe_file(..., headers={...})`) since this SDK
+    sends `application/octet-stream` by default for raw bytes; Deepgram's
+    backend can usually still sniff common containers like WAV/MP3 correctly
+    either way, but passing the real content-type is more correct when it's
+    known (e.g. loaded from a file with a known extension).
 
     For low-latency live streaming (partial transcripts while the caller is
     still speaking), use `client.listen.v1.connect(...)` instead — that's a
@@ -207,12 +227,13 @@ def stt_transcribe(audio_bytes: bytes, mimetype: str = "audio/wav"):
             options = PrerecordedOptions(
                 model="nova-3",
                 smart_format=True,
-                # mimetype=mimetype,
+                language=DEEPGRAM_LANGUAGE,
             )
 
             response = client.listen.rest.v("1").transcribe_file(
                 payload,
                 options,
+                headers={"Content-Type": mimetype},
             )
 
             transcript = (
@@ -272,13 +293,70 @@ def generate_llm_reply_stream(prompt: str, model: str = "smart"):
 
 # ---------- Sentence splitting for TTS streaming (no LLM call) ----------
 
+_EMOJI_PATTERN = re.compile(
+    "["
+    "\U0001F300-\U0001FAFF"  # pictographs, emoticons, transport, symbols
+    "\U00002600-\U000027BF"  # misc symbols and dingbats
+    "\U0001F1E6-\U0001F1FF"  # regional indicator flags
+    "️"  # variation selector (emoji presentation)
+    "]+",
+    flags=re.UNICODE,
+)
+
+
+def _clean_for_speech(text: str) -> str:
+    """Strips formatting that reads fine as text on a screen but breaks or
+    sounds wrong when spoken aloud by TTS:
+      - emoji: seen in practice to make Edge TTS raise NoAudioReceived when
+        a sentence is emoji-only (nothing phonetic to synthesize) — see
+        tts_stream_audio()'s retry docstring, this is the actual fix, retries
+        alone don't help since it's not transient.
+      - markdown bold/italic markers (**text**, __text__, *text*): would
+        otherwise be read literally as "asterisk asterisk" by a naive TTS
+        pass-through, or just sound like stray noise.
+      - numbered/bulleted list markers ("1. ", "- "): a bare "1." at the
+        start of a line both gets read as "one dot" on its own and, worse,
+        its trailing period is indistinguishable from a sentence boundary to
+        _split_into_sentences() below, splitting the number away from the
+        item it labels (that's why isolated "2." / "3." sentences showed up
+        in early transcripts). Merged into the following text instead.
+      - Devanagari script (Hindi, e.g. "धन्यवाद"): a different Unicode block
+        entirely from Urdu's Arabic/Nastaliq script (اردو) — Urdulish is
+        Urdu (Roman-transliterated OR Arabic-script, both are left alone
+        here) plus English, never Devanagari, which belongs to Hindi. The
+        LLM occasionally drifts into it for common words ("thanks" etc.)
+        despite the persona, and EDGE_DEFAULT_VOICE (a Pakistani Urdu voice)
+        genuinely can't synthesize it — confirmed non-transient, the same
+        text fails Edge TTS's NoAudioReceived check identically on every
+        retry, so this strips it rather than retrying uselessly.
+    The LLM is asked for natural spoken UrduLish, not markdown, but models
+    reliably slip into list/emphasis formatting for anything list-shaped —
+    this is the boundary that keeps that from reaching the caller's ear.
+    """
+    text = _EMOJI_PATTERN.sub("", text)
+    text = re.sub(r"[ऀ-ॿ]+", "", text)  # Devanagari script (Hindi, not Urdu)
+    text = re.sub(r"(?m)^[ \t]*(\d+)\.[ \t]*\n*[ \t]*", r"\1) ", text)  # "1.\n\n**x" -> "1) **x"
+    text = re.sub(r"(?m)^[ \t]*[-*][ \t]+", "", text)  # leading "- "/"* " bullet markers
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)  # **bold**
+    text = re.sub(r"__(.+?)__", r"\1", text)  # __bold__
+    text = re.sub(r"(?<!\w)\*(.+?)\*(?!\w)", r"\1", text)  # *italic*
+    text = re.sub(r"\n{2,}", ". ", text)  # paragraph break -> spoken pause
+    text = re.sub(r"\n", " ", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    return text.strip()
+
+
 def _split_into_sentences(text: str):
     """Splits an already-composed reply into sentence-sized pieces so TTS can
     start on the first sentence while later ones are still being synthesized.
     Pure text splitting, no model call — see module docstring for why this
-    must not go through the LLM again."""
-    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
-    return [s for s in sentences if s]
+    must not go through the LLM again. Runs _clean_for_speech() first so list
+    numbering and emphasis markers don't create false sentence boundaries or
+    empty/symbol-only fragments (see that function's docstring), then drops
+    any leftover fragment with no alphanumeric content as a safety net."""
+    cleaned = _clean_for_speech(text)
+    sentences = re.split(r"(?<=[.!?])\s+", cleaned.strip())
+    return [s for s in sentences if s and re.search(r"\w", s, flags=re.UNICODE)]
 
 
 # ---------- Text-to-Speech (Edge TTS) ----------
@@ -369,6 +447,10 @@ def warmup_tts(voice: Optional[str] = None):
         print(f"TTS warmup call failed (non-fatal, continuing): {e}")
 
 
+EDGE_TTS_MAX_RETRIES = int(os.getenv("EDGE_TTS_MAX_RETRIES", "3"))
+EDGE_TTS_RETRY_BACKOFF_S = 0.5  # doubles each retry: 0.5s, 1s, 2s...
+
+
 def tts_stream_audio(text: str, voice_id: Optional[str] = None):
     """
     Real Edge TTS call (sync wrapper around the async `edge-tts` SDK).
@@ -384,19 +466,34 @@ def tts_stream_audio(text: str, voice_id: Optional[str] = None):
     Fish Audio reference_id — same parameter slot, different meaning, kept
     so the function signature didn't need to change.
 
+    Retries on transient failures (e.g. edge-tts's `NoAudioReceived`, seen in
+    practice on isolated short sentences against Microsoft's websocket
+    endpoint with no server-side explanation) with a short exponential
+    backoff, since edge-tts opens a fresh, unauthenticated websocket per call
+    with no retry of its own — a single dropped connection would otherwise
+    kill the rest of the caller's reply mid-sentence, which reads as a
+    dropped call to the customer. Only raises once retries are exhausted.
+
     Returns (audio_bytes, latency_to_first_chunk_ms).
     """
     voice = voice_id or EDGE_DEFAULT_VOICE
-    try:
-        audio_bytes, latency_ms = asyncio.run(_edge_tts_collect(text, voice))
-    except Exception as e:
-        traceback.print_exc()
-        raise RuntimeError(f"Edge TTS failed: {e}") from e
+    last_error = None
+    for attempt in range(1, EDGE_TTS_MAX_RETRIES + 1):
+        try:
+            audio_bytes, latency_ms = asyncio.run(_edge_tts_collect(text, voice))
+            if not audio_bytes:
+                raise RuntimeError("Edge TTS returned no audio data.")
+            return audio_bytes, latency_ms
+        except Exception as e:
+            last_error = e
+            if attempt < EDGE_TTS_MAX_RETRIES:
+                backoff_s = EDGE_TTS_RETRY_BACKOFF_S * (2 ** (attempt - 1))
+                print(f"  [edge-tts] attempt {attempt}/{EDGE_TTS_MAX_RETRIES} failed "
+                      f"({e}), retrying in {backoff_s}s...")
+                time.sleep(backoff_s)
 
-    if not audio_bytes:
-        raise RuntimeError("Edge TTS returned no audio data.")
-
-    return audio_bytes, latency_ms
+    traceback.print_exception(type(last_error), last_error, last_error.__traceback__)
+    raise RuntimeError(f"Edge TTS failed after {EDGE_TTS_MAX_RETRIES} attempts: {last_error}") from last_error
 
 
 
@@ -501,6 +598,7 @@ class TurnLatencyReport:
     audio_file_paths: list = field(default_factory=list)  # saved mp3 paths, same order as audio_chunks
     transcript: str = ""  # customer transcript actually used for this turn
     reply_text: str = ""  # agent reply actually spoken this turn
+    skipped_sentences: list = field(default_factory=list)  # (sentence, error) pairs TTS couldn't synthesize
 
 
 _turn_counter = 0
@@ -635,16 +733,34 @@ def run_voice_turn(customer_speech_text, agent_reply_text: Optional[str] = None,
         agent_reply_text = _generate_conversation_reply(transcript)
 
     report.reply_text = agent_reply_text
-    spoken_sentences = _split_into_sentences(agent_reply_text)
+    candidate_sentences = _split_into_sentences(agent_reply_text)
+    spoken_sentences = []  # only sentences that actually got synthesized, in order
     running_total = report.stt_ms
     first_sentence_done = False
 
-    for sentence in spoken_sentences:
+    for sentence in candidate_sentences:
         print("=" * 80)
         print("TTS INPUT:")
         print(repr(sentence))
         print("=" * 80)
-        audio_bytes, tts_ms = tts_stream_audio(sentence)
+        try:
+            audio_bytes, tts_ms = tts_stream_audio(sentence)
+        except RuntimeError as e:
+            # Edge TTS is an unofficial, undocumented API — Microsoft's
+            # backend occasionally returns zero audio for a request that
+            # completes cleanly (no connection error, no explanation), even
+            # for valid short text (confirmed by reading edge_tts's own
+            # source: this is NOT the retry-worthy transient case
+            # tts_stream_audio() already retries — it's exhausted those
+            # retries and still got nothing). One unspeakable sentence
+            # shouldn't kill the rest of the reply / the whole call, so it's
+            # logged and skipped rather than propagated.
+            print(f"  [voice_pipeline] TTS could not synthesize this sentence after "
+                  f"retries, skipping it and continuing: {e}")
+            report.skipped_sentences.append((sentence, str(e)))
+            continue
+
+        spoken_sentences.append(sentence)
         report.audio_chunks.append(audio_bytes)
 
         if not first_sentence_done:
@@ -670,11 +786,14 @@ def run_voice_turn(customer_speech_text, agent_reply_text: Optional[str] = None,
 # ---------- Offline end-to-end test ----------
 
 def run_offline_test(sample_audio_dir: str = SAMPLE_AUDIO_DIR,
-                      output_dir: str = GENERATED_AUDIO_DIR):
+                      output_dir: str = OFFLINE_TEST_AUDIO_DIR):
     """
     Runs every audio file in sample_audio_dir through the complete pipeline:
     load file -> Deepgram STT -> conversation_agent.py reply generation ->
-    Edge TTS -> save MP3s to output_dir. No live phone call, no mocked
+    Edge TTS -> save MP3s to output_dir (defaults to OFFLINE_TEST_AUDIO_DIR,
+    a subfolder of GENERATED_AUDIO_DIR — kept separate from the live-call
+    path's output so this standalone test never overwrites turn_NNN files a
+    real/eval-script call already saved there). No live phone call, no mocked
     stages — this is the "offline end-to-end test" entry point.
 
     Calls warmup_tts() once before the timed runs so the first sample's
@@ -748,7 +867,8 @@ if __name__ == "__main__":
             "Aap chahein toh main aap ko iski details bhej doon?"
         )
         try:
-            report, sentences = run_voice_turn("DHA Phase 6 mein kya options hain?", reply)
+            report, sentences = run_voice_turn("DHA Phase 6 mein kya options hain?", reply,
+                                                output_dir=OFFLINE_TEST_AUDIO_DIR)
         except RuntimeError as e:
             print(f"Pipeline call failed: {e}")
             print("Check that DEEPGRAM_API_KEY / BASE_URL / API_KEY are set in your .env "

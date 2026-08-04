@@ -5,6 +5,8 @@ This was done so that part of the workflow can be used in the future.
 
 Synthetic data was generated for this.
 
+---
+
 ## Folder Structure
 
 ```
@@ -55,16 +57,19 @@ python3 src/evaluate_chunk_sizes.py       # Task 2: chunk size comparison
 python3 src/recommendation_engine.py      # Task 4: demo recommendation
 python3 eval/hallucination_questions.py   # Task 5: run the 20-question evaluation
 ```
+---
 
 ## Task Summary
 
 ### Task 1: Knowledge Base
 60 synthetic properties across 3 cities (Lahore, Karachi, Islamabad) and 15 areas, with linked locations, amenities, schools, hospitals, payment plans, developers, and 20 FAQs. Every property also gets a generated brochure (marketing tone) and description (neutral factual tone) as text documents, since the RAG pipeline needs unstructured content to chunk and retrieve, not just CSV rows.
 
+---
+
 ### Task 2: RAG Pipeline
 Full pipeline: document loader -> word-based chunker with overlap -> embedding -> ChromaDB vector store -> top-k retriever -> answer generation.
 
-Embedding note: this sandbox has no network access to hosted embedding APIs (OpenAI/HuggingFace), so a local TF-IDF vectorizer is used as the embedding function, wrapped to match ChromaDB's embedding function interface. In production this is a one-line swap to an OpenAI or ChromaDB-hosted embedding function, nothing else in the pipeline changes.
+Embedding note: I used SentenceTransformer and my embedding model since gemini was hitting its limit too quick. Sentence transformer doesnt take up any tokens since theres no api call involved.
 
 #### Chunking Evaluation Results
 
@@ -82,17 +87,22 @@ Embedding note: this sandbox has no network access to hosted embedding APIs (Ope
 
 - Based on these results, a **200-word chunk size** was selected as the default configuration. It achieved the highest retrieval accuracy while avoiding the creation of unnecessary chunks, providing the best balance between retrieval performance and indexing efficiency.
 
+---
 
 ### Task 3: Structured Retrieval
 Prices, availability, plot sizes, and agent names are answered by direct SQL against `db/knowledge_base.db`, never by the LLM. Brochures, descriptions, and FAQs go through vector retrieval. Full reasoning in `eval/structured_vs_semantic_justification.md`: exact facts have zero tolerance for paraphrase drift, descriptive content needs semantic matching because customer phrasing rarely matches document wording exactly.
 
+---
+
 ### Task 4: Recommendation Engine
 `src/recommendation_engine.py` filters candidates with structured SQL (budget, city, area, bedrooms, purpose) then ranks them with a weighted score (budget fit, location match, bedroom match, amenity match, purpose match). Weights live in `config/domain_config.yaml`, not hardcoded in the scoring function, so they can be tuned per domain.
+
+---
 
 ### Task 5: Hallucination Evaluation
 20 questions across structured, semantic, and out-of-knowledge-base categories, scored for Grounding Rate, Retrieval Accuracy, and Hallucination Rate. Full results in `eval/hallucination_results.md`.
 
-
+---
 
 ## Domain-Agnostic Design Notes
 

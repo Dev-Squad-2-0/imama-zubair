@@ -3,11 +3,6 @@
 Scoring rubric for `outputs/sample_transcripts.md`. Scored 1-5 per category,
 same idea as `eval/hallucination_results.md` in Day 2.
 
-This is a self-evaluation by reading the transcripts, not an independent
-listener — flagged for supervisor review rather than treated as final.
-
-Everything scored here is from a **real run**: real LLM replies, real Edge
-TTS latency numbers. Nothing in this file is simulated.
 
 ## Categories
 

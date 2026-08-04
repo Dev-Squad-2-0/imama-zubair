@@ -1,0 +1,221 @@
+[
+  {
+    "id": 1,
+    "category": "structured",
+    "question": "What is the price of property 1?",
+    "expected": "8332858",
+    "answer_mode": "sql_lookup",
+    "grounded": true,
+    "retrieval_correct": null,
+    "hallucinated": false
+  },
+  {
+    "id": 2,
+    "category": "structured",
+    "question": "Is property 1 available?",
+    "expected": "available",
+    "answer_mode": "sql_lookup",
+    "grounded": true,
+    "retrieval_correct": null,
+    "hallucinated": false
+  },
+  {
+    "id": 3,
+    "category": "structured",
+    "question": "What is the plot size of property 1?",
+    "expected": "2",
+    "answer_mode": "sql_lookup",
+    "grounded": true,
+    "retrieval_correct": null,
+    "hallucinated": false
+  },
+  {
+    "id": 4,
+    "category": "structured",
+    "question": "Who is the agent for property 1?",
+    "expected": "Cindy Anderson",
+    "answer_mode": "sql_lookup",
+    "grounded": true,
+    "retrieval_correct": null,
+    "hallucinated": false
+  },
+  {
+    "id": 5,
+    "category": "structured",
+    "question": "What is the price of property 30?",
+    "expected": "6260302",
+    "answer_mode": "sql_lookup",
+    "grounded": true,
+    "retrieval_correct": null,
+    "hallucinated": false
+  },
+  {
+    "id": 6,
+    "category": "structured",
+    "question": "How many bedrooms does property 30 have?",
+    "expected": "0",
+    "answer_mode": "sql_lookup",
+    "grounded": true,
+    "retrieval_correct": null,
+    "hallucinated": false
+  },
+  {
+    "id": 7,
+    "category": "structured",
+    "question": "What type of property is 30?",
+    "expected": "shop",
+    "answer_mode": "sql_lookup",
+    "grounded": true,
+    "retrieval_correct": null,
+    "hallucinated": false
+  },
+  {
+    "id": 8,
+    "category": "semantic",
+    "question": "What amenities are commonly offered in DHA Phase 6 properties?",
+    "expected": null,
+    "answer_mode": "llm_generated",
+    "grounded": false,
+    "retrieval_correct": true,
+    "hallucinated": true,
+    "answer_preview": "Amenities commonly offered in DHA Phase 6 properties include"
+  },
+  {
+    "id": 9,
+    "category": "semantic",
+    "question": "Do you offer flexible payment plans?",
+    "expected": null,
+    "answer_mode": "llm_generated",
+    "grounded": true,
+    "retrieval_correct": true,
+    "hallucinated": false,
+    "answer_preview": "Yes, most of our properties offer flexible payment plans."
+  },
+  {
+    "id": 10,
+    "category": "semantic",
+    "question": "What documents are needed to buy a property?",
+    "expected": null,
+    "answer_mode": "llm_generated",
+    "grounded": true,
+    "retrieval_correct": true,
+    "hallucinated": false,
+    "answer_preview": "You need your CNIC, proof of income, and a passport size photo. For overseas clients, NICOP is accepted."
+  },
+  {
+    "id": 11,
+    "category": "semantic",
+    "question": "Can overseas Pakistanis buy property remotely?",
+    "expected": null,
+    "answer_mode": "llm_generated",
+    "grounded": true,
+    "retrieval_correct": true,
+    "hallucinated": false,
+    "answer_preview": "Yes, overseas clients can complete the full booking process remotely through video verification and legal power of attorney."
+  },
+  {
+    "id": 12,
+    "category": "semantic",
+    "question": "Is the price negotiable?",
+    "expected": null,
+    "answer_mode": "llm_generated",
+    "grounded": true,
+    "retrieval_correct": true,
+    "hallucinated": false,
+    "answer_preview": "Yes, prices have some flexibility depending on the property and how long it has been listed. Our agent can share the best possible rate."
+  },
+  {
+    "id": 13,
+    "category": "semantic",
+    "question": "What is the difference between a token and down payment?",
+    "expected": null,
+    "answer_mode": "llm_generated",
+    "grounded": true,
+    "retrieval_correct": true,
+    "hallucinated": false,
+    "answer_preview": "Token is a small initial commitment amount, down payment is the larger upfront portion of the total price paid at the time of booking."
+  },
+  {
+    "id": 14,
+    "category": "semantic",
+    "question": "Do you provide legal assistance during purchase?",
+    "expected": null,
+    "answer_mode": "llm_generated",
+    "grounded": true,
+    "retrieval_correct": true,
+    "hallucinated": false,
+    "answer_preview": "Yes, we can connect you with panel lawyers who review the sale agreement and title documents."
+  },
+  {
+    "id": 15,
+    "category": "out_of_kb",
+    "question": "What is the current State Bank of Pakistan policy interest rate?",
+    "expected": "should decline / say not available",
+    "answer_mode": "llm_generated",
+    "grounded": null,
+    "retrieval_correct": null,
+    "hallucinated": false,
+    "answer_preview": "I don't have that information.",
+    "note": ""
+  },
+  {
+    "id": 16,
+    "category": "out_of_kb",
+    "question": "Can you guarantee my property value will double in 2 years?",
+    "expected": "should decline / say not available",
+    "answer_mode": "llm_generated",
+    "grounded": null,
+    "retrieval_correct": null,
+    "hallucinated": false,
+    "answer_preview": "I don't have that information.",
+    "note": ""
+  },
+  {
+    "id": 17,
+    "category": "out_of_kb",
+    "question": "What is the weather forecast for Lahore this weekend?",
+    "expected": "should decline / say not available",
+    "answer_mode": "llm_generated",
+    "grounded": null,
+    "retrieval_correct": null,
+    "hallucinated": false,
+    "answer_preview": "I don't have that information.",
+    "note": ""
+  },
+  {
+    "id": 18,
+    "category": "out_of_kb",
+    "question": "Do you have any properties on the moon?",
+    "expected": "should decline / say not available",
+    "answer_mode": "llm_generated",
+    "grounded": null,
+    "retrieval_correct": null,
+    "hallucinated": false,
+    "answer_preview": "I don't have that information.",
+    "note": ""
+  },
+  {
+    "id": 19,
+    "category": "out_of_kb",
+    "question": "What is your company's total annual revenue?",
+    "expected": "should decline / say not available",
+    "answer_mode": "llm_generated",
+    "grounded": null,
+    "retrieval_correct": null,
+    "hallucinated": false,
+    "answer_preview": "I don't have that information.",
+    "note": ""
+  },
+  {
+    "id": 20,
+    "category": "out_of_kb",
+    "question": "Can I pay in Bitcoin for a property?",
+    "expected": "should decline / say not available",
+    "answer_mode": "llm_generated",
+    "grounded": null,
+    "retrieval_correct": null,
+    "hallucinated": false,
+    "answer_preview": "I don't have that information.",
+    "note": ""
+  }
+]

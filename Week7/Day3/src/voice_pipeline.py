@@ -251,7 +251,7 @@ def stt_transcribe(audio_bytes: bytes, mimetype: str = "audio/wav"):
     return transcript, latency_ms
 
 
-# ---------- Reply generation (LLM) — Day 4 integration point ----------
+# ---------- Reply generation (LLM) for later use----------
 
 def generate_llm_reply_stream(prompt: str, model: str = "smart"):
     """

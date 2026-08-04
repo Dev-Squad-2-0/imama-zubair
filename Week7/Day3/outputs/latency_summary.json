@@ -1,0 +1,34 @@
+{
+  "total_turns_with_latency": 15,
+  "avg_latency_ms": 1210.1,
+  "max_latency_ms": 1352,
+  "min_latency_ms": 1087,
+  "turns_over_2000ms_budget": 0,
+  "per_scenario_latency_ms": {
+    "scenario_1_budget_and_area_memory": [
+      1295,
+      1162,
+      1268,
+      1285
+    ],
+    "scenario_2_price_objection_then_decline_twice": [
+      1199,
+      1223,
+      1100,
+      1147
+    ],
+    "scenario_3_investment_guardrail": [
+      1352,
+      1198
+    ],
+    "scenario_4_trust_and_builder_concerns": [
+      1186,
+      1185,
+      1288
+    ],
+    "scenario_5_interruption_midcall": [
+      1087,
+      1176
+    ]
+  }
+}

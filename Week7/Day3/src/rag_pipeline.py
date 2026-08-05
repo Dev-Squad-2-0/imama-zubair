@@ -22,7 +22,7 @@ import chromadb
 from openai import OpenAI
 # from google import genai
 
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer #type: ignore
 
 from dotenv import load_dotenv
 

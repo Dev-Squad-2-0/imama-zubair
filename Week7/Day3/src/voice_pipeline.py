@@ -15,29 +15,10 @@ when `run_voice_turn()` is called WITH an `agent_reply_text` (this is how
 conversation_agent.py calls it during a live/simulated call), that text is
 already-decided and must be spoken as-is — this file must not re-run it
 through the LLM as if it were a fresh instruction, or it would speak a
-different sentence than conversation_agent.py just decided on, silently
-bypassing objection handling / guardrails already applied upstream.
+different sentence than conversation_agent.py just decided on
 Sentence-splitting for TTS streaming is done locally with a regex, no LLM
 call involved.
 
-For OFFLINE END-TO-END TESTING (this file run directly, or `run_voice_turn()`
-called with `agent_reply_text=None`), the story is different on purpose: with
-no live orchestrator driving the call, `run_voice_turn()` transcribes the
-given audio, then drives conversation_agent.py's reply generation itself
-(lazy import — see `_generate_conversation_reply()` — to avoid a circular
-import with conversation_agent.py, which imports this module at the top
-level) before synthesizing and saving the spoken reply. This mode exists for
-testing this file standalone against `sample_audio/*.wav`, not for the live
-call path.
-
-The LLM is also wired up for real in this file (`generate_llm_reply_stream()`),
-kept as a standalone, explicitly-invoked function rather than something
-run_voice_turn() calls automatically in the live-call path. It's the
-integration point for Day 4, when conversation_agent.py's template-based
-`_compose_reply()` is replaced with a real LLM call — at that point
-conversation_agent.py calls `generate_llm_reply_stream()` itself and passes
-the resulting text into `run_voice_turn()`, same as it does today with
-template text.
 
 LATENCY BUDGET (target: under 2000ms first-audio-out)
     STT                                          ~150-300ms  (real Deepgram)
@@ -47,22 +28,6 @@ LATENCY BUDGET (target: under 2000ms first-audio-out)
     ---------------------------------------------------------
     Total to FIRST AUDIO CHUNK reported by run_voice_turn() = STT + TTS-to-first-sentence
 
-    A NOTE ON THAT ~150-500ms NUMBER: if you're seeing ~2.5s to first audio
-    chunk in practice, that is NOT this code buffering the whole MP3 before
-    reporting latency — verified against edge-tts 7.2.8's source
-    (communicate.py: `yield {"type": "audio", "data": data}` fires per
-    websocket frame as it arrives, and `tts_stream_audio()` below records
-    the timestamp at the FIRST such frame, not after the loop finishes).
-    What's actually being measured in that case is real one-time connection
-    setup cost: DNS + TLS handshake + Azure's websocket negotiation, paid in
-    full on every call since edge-tts opens a fresh connection per
-    `Communicate` instance (no session reuse). That cost is highest on the
-    very first TTS call in a process and on slow/proxied networks. Two
-    concrete things that help:
-      - call `warmup_tts()` once at process/call-session startup (see below)
-        to pay that cost before you start timing real turns
-      - set `EDGE_TTS_DEBUG=1` to log per-chunk arrival timestamps and see
-        exactly where the time is going on your network
 
 INTEGRATION POINTS NOT WIRED UP IN THIS DEMO (kept clearly separate so they
 can be dropped in without touching the rest of the pipeline):

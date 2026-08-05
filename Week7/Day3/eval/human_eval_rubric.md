@@ -59,15 +59,5 @@ streaming endpoint).
   isn't grounded in retrieved text, it's whatever the LLM already knows.
   Didn't come up as a wrong answer in these 5 scenarios, but it's a gap for
   broader coverage.
-- **This is still a self-evaluation**, not an independent listener. The
-  numbers above are a reasonable first pass, but the rubric is really
-  designed for someone who didn't build the system to score it.
 
-## Next Step for Day 4+
 
-The reply generation itself is real now — the actual next step is closing
-the latency gap: stream the LLM call (`generate_llm_reply_stream()` already
-exists, just isn't wired in) so TTS starts on the first sentence instead of
-waiting for the whole reply, and switch Deepgram to its streaming endpoint
-instead of the batch one. Everything else (memory, objection detection,
-speech behaviors) is already running for real and doesn't need to change.

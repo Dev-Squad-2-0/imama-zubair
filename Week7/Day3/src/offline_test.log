@@ -1,0 +1,608 @@
+Using Edge TTS voice: ur-PK-AsadNeural (set EDGE_TTS_VOICE in .env to change)
+Warming up Edge TTS connection...
+
+======================================================================
+01_budget_3_crore.wav
+======================================================================
+Using Edge TTS voice: ur-PK-AsadNeural (set EDGE_TTS_VOICE in .env to change)
+
+===== PROMPT SENT TO LLM =====
+
+        Customer Message:
+        
+
+        Conversation Memory:
+        
+        Budget: None
+        City: None
+        Area: None
+        Bedrooms: None
+        Purpose: None
+        Declines: 0
+        
+
+        Detected Objection:
+        None
+
+        Objection Strategy:
+        None
+
+        Recommended Properties:
+        - 2 Marla Apartment in Johar Town, Lahore
+  Price: 83 lakh
+  Bedrooms: 3
+  Location: Lahore - Johar Town
+  Amenities: Shopping Mall Access, Solar Panels, Community Park
+- 3 Marla Apartment in F-10, Islamabad
+  Price: 1 crore 65 lakh
+  Bedrooms: 2
+  Location: Islamabad - F-10
+  Amenities: Community Park, Swimming Pool, Gymnasium
+- 12 Marla House in DHA Phase 2, Islamabad
+  Price: 2 crore 6 lakh
+  Bedrooms: 5
+  Location: Islamabad - DHA Phase 2
+  Amenities: Gymnasium, Community Park, Kids Play Area
+
+        Property Information:
+        None
+
+        Conversation History:
+        Customer: 
+
+        Instructions:
+
+    - Use ONLY the provided property information.
+    - Never invent prices, amenities or availability.
+    - If information is unavailable, say so honestly.
+    - Maintain conversation continuity using the memory.
+    - Respond in natural Pakistani Urdulish.
+    - Sound like an experienced but friendly real estate sales executive.
+    - Keep responses conversational instead of robotic.
+    - If multiple properties match, recommend the strongest one first and briefly mention alternatives.
+    - Handle objections naturally instead of arguing.
+    - Keep replies under 120 words unless the customer explicitly asks for more detail.
+    - This reply is spoken aloud by text-to-speech, not read on screen: write in
+      plain flowing spoken sentences only. Never use markdown (no **bold**,
+      no numbered or bulleted lists), never use emojis or emoticons.
+    - Write only in Roman Urdu/English (UrduLish) or Urdu script mixed with
+      English, matching the persona's examples. Never use Devanagari/Hindi
+      script — this is a Pakistani Urdu voice, it cannot speak Devanagari.
+        
+================================================================================
+TTS INPUT:
+'Zara rukiye, main confirm kar ke batata hoon.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Assalam-o-Alaikum sir!'
+================================================================================
+================================================================================
+TTS INPUT:
+'RealEstate Hub se baat ho rahi hai.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Abhi mere paas teen options hain – sab se pehle, Johar Town, Lahore mein 2\u202fMarla apartment, price 83\u202flakh, 3 bedrooms, shopping mall ke saath, solar panels aur community park bhi hai.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Yeh ek achi location hai aur budget‑friendly bhi.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Aapko kaun si property sab se zyada interest kar rahi hai – Lahore ka yeh ya phir Islamabad ke koi options?'
+================================================================================
+================================================================================
+TTS INPUT:
+'Thoda apna budget, size ya area batayen taake main aapko behtar guide kar sakun.'
+================================================================================
+Transcript (Deepgram): ''
+Reply (spoken):        Zara rukiye, main confirm kar ke batata hoon. Assalam-o-Alaikum sir! RealEstate Hub se baat ho rahi hai. Abhi mere paas teen options hain – sab se pehle, Johar Town, Lahore mein 2 Marla apartment, price 83 lakh, 3 bedrooms, shopping mall ke saath, solar panels aur community park bhi hai. Yeh ek achi location hai aur budget‑friendly bhi. Aapko kaun si property sab se zyada interest kar rahi hai – Lahore ka yeh ya phir Islamabad ke koi options? Thoda apna budget, size ya area batayen taake main aapko behtar guide kar sakun.
+Latency to first audio: 4656ms (OVER 2000ms budget)
+Saved audio: ['E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_001_sentence_01.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_001_sentence_02.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_001_sentence_03.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_001_sentence_04.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_001_sentence_05.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_001_sentence_06.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_001_sentence_07.mp3']
+
+======================================================================
+02_dha_area_query.wav
+======================================================================
+
+===== PROMPT SENT TO LLM =====
+
+        Customer Message:
+        DHA
+
+        Conversation Memory:
+        
+        Budget: None
+        City: None
+        Area: DHA Phase 6
+        Bedrooms: None
+        Purpose: None
+        Declines: 0
+        
+
+        Detected Objection:
+        None
+
+        Objection Strategy:
+        None
+
+        Recommended Properties:
+        - 1 Marla Shop in DHA Phase 6, Lahore
+  Price: 62 lakh
+  Bedrooms: 0
+  Location: Lahore - DHA Phase 6
+  Amenities: Mosque, Underground Electricity, Shopping Mall Access, Covered Parking, Swimming Pool
+- 2 Marla Apartment in DHA Phase 6, Lahore
+  Price: 1 crore 41 lakh
+  Bedrooms: 3
+  Location: Lahore - DHA Phase 6
+  Amenities: 24/7 Security, Covered Parking, Solar Panels, Backup Generator, Swimming Pool, Shopping Mall Access
+- 1 Marla Apartment in DHA Phase 6, Lahore
+  Price: 71 lakh
+  Bedrooms: 3
+  Location: Lahore - DHA Phase 6
+  Amenities: Wide Roads, Swimming Pool, Backup Generator, Mosque
+
+        Property Information:
+        None
+
+        Conversation History:
+        Customer: DHA
+
+        Instructions:
+
+    - Use ONLY the provided property information.
+    - Never invent prices, amenities or availability.
+    - If information is unavailable, say so honestly.
+    - Maintain conversation continuity using the memory.
+    - Respond in natural Pakistani Urdulish.
+    - Sound like an experienced but friendly real estate sales executive.
+    - Keep responses conversational instead of robotic.
+    - If multiple properties match, recommend the strongest one first and briefly mention alternatives.
+    - Handle objections naturally instead of arguing.
+    - Keep replies under 120 words unless the customer explicitly asks for more detail.
+    - This reply is spoken aloud by text-to-speech, not read on screen: write in
+      plain flowing spoken sentences only. Never use markdown (no **bold**,
+      no numbered or bulleted lists), never use emojis or emoticons.
+    - Write only in Roman Urdu/English (UrduLish) or Urdu script mixed with
+      English, matching the persona's examples. Never use Devanagari/Hindi
+      script — this is a Pakistani Urdu voice, it cannot speak Devanagari.
+        
+================================================================================
+TTS INPUT:
+'Acha...'
+================================================================================
+================================================================================
+TTS INPUT:
+'Zara rukiye, main confirm kar ke batata hoon.'
+NoneType: None
+================================================================================
+================================================================================
+TTS INPUT:
+'Assalam-o-Alaikum sir!'
+================================================================================
+================================================================================
+TTS INPUT:
+'DHA Phase\u202f6 mein aap ke liye ek zabardast option hai – 2\u202fMarla ka apartment, 3\u202fbedroom, price 1\u202fcrore\u202f41\u202flakh.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Ismein 24/7 security, covered parking, solar panels, backup generator aur swimming pool jaise amenities hain, aur shopping mall tak asaan access bhi milta hai.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Agar aap thoda chhota dekhna chahein, toh 1\u202fMarla ka apartment 71\u202flakh ka bhi available hai, 3\u202fbedroom ke saath, wide roads aur swimming pool ke saath.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Ya phir commercial side explore karna ho toh 1\u202fMarla shop sirf 62\u202flakh mein mil sakti hai, mosque aur covered parking ke saath.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Inmein se koi aap ko pasand aaye ya koi specific requirement ho, batayein, taake aage ka step arrange kar sakun.'
+================================================================================
+Transcript (Deepgram): 'DHA'
+Reply (spoken):        Acha... Zara rukiye, main confirm kar ke batata hoon. Assalam-o-Alaikum sir! DHA Phase 6 mein aap ke liye ek zabardast option hai – 2 Marla ka apartment, 3 bedroom, price 1 crore 41 lakh. Ismein 24/7 security, covered parking, solar panels, backup generator aur swimming pool jaise amenities hain, aur shopping mall tak asaan access bhi milta hai. Agar aap thoda chhota dekhna chahein, toh 1 Marla ka apartment 71 lakh ka bhi available hai, 3 bedroom ke saath, wide roads aur swimming pool ke saath. Ya phir commercial side explore karna ho toh 1 Marla shop sirf 62 lakh mein mil sakti hai, mosque aur covered parking ke saath. Inmein se koi aap ko pasand aaye ya koi specific requirement ho, batayein, taake aage ka step arrange kar sakun.
+Latency to first audio: 4984ms (OVER 2000ms budget)
+Saved audio: ['E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_002_sentence_01.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_002_sentence_02.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_002_sentence_03.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_002_sentence_04.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_002_sentence_05.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_002_sentence_06.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_002_sentence_07.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_002_sentence_08.mp3']
+
+======================================================================
+03_price_objection.wav
+======================================================================
+
+===== PROMPT SENT TO LLM =====
+
+        Customer Message:
+        Yeh property
+
+        Conversation Memory:
+        
+        Budget: None
+        City: None
+        Area: None
+        Bedrooms: None
+        Purpose: None
+        Declines: 0
+        
+
+        Detected Objection:
+        None
+
+        Objection Strategy:
+        None
+
+        Recommended Properties:
+        - 2 Marla Apartment in Johar Town, Lahore
+  Price: 83 lakh
+  Bedrooms: 3
+  Location: Lahore - Johar Town
+  Amenities: Shopping Mall Access, Solar Panels, Community Park
+- 3 Marla Apartment in F-10, Islamabad
+  Price: 1 crore 65 lakh
+  Bedrooms: 2
+  Location: Islamabad - F-10
+  Amenities: Community Park, Swimming Pool, Gymnasium
+- 12 Marla House in DHA Phase 2, Islamabad
+  Price: 2 crore 6 lakh
+  Bedrooms: 5
+  Location: Islamabad - DHA Phase 2
+  Amenities: Gymnasium, Community Park, Kids Play Area
+
+        Property Information:
+        None
+
+        Conversation History:
+        Customer: Yeh property
+
+        Instructions:
+
+    - Use ONLY the provided property information.
+    - Never invent prices, amenities or availability.
+    - If information is unavailable, say so honestly.
+    - Maintain conversation continuity using the memory.
+    - Respond in natural Pakistani Urdulish.
+    - Sound like an experienced but friendly real estate sales executive.
+    - Keep responses conversational instead of robotic.
+    - If multiple properties match, recommend the strongest one first and briefly mention alternatives.
+    - Handle objections naturally instead of arguing.
+    - Keep replies under 120 words unless the customer explicitly asks for more detail.
+    - This reply is spoken aloud by text-to-speech, not read on screen: write in
+      plain flowing spoken sentences only. Never use markdown (no **bold**,
+      no numbered or bulleted lists), never use emojis or emoticons.
+    - Write only in Roman Urdu/English (UrduLish) or Urdu script mixed with
+      English, matching the persona's examples. Never use Devanagari/Hindi
+      script — this is a Pakistani Urdu voice, it cannot speak Devanagari.
+        
+================================================================================
+TTS INPUT:
+'Ek second sir, main abhi availability check kar leta hoon.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Assalam-o-Alaikum sir!'
+================================================================================
+================================================================================
+TTS INPUT:
+'Aap ne “Yeh property” kaha, toh main samajh raha hoon ke aap shayad in listings mein se koi dekhna chah rahe hain.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Sab se pehle, Johar Town, Lahore mein 2\u202fMarla apartment hai – price 83\u202flakh, 3 bedrooms, aur amenities mein shopping mall access, solar panels aur community park shamil hain.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Agar aapko yeh pasand aaye toh main aur details bhej sakta hoon ya site visit schedule kar sakta hoon..'
+================================================================================
+================================================================================
+TTS INPUT:
+'Doosri options hain F‑10, Islamabad ka 3\u202fMarla apartment (price 1\u202fcrore\u202f65\u202flakh, 2 bedrooms, park, pool, gym) aur DHA Phase\u202f2, Islamabad ka 12\u202fMarla house (price 2\u202fcrore\u202f6\u202flakh, 5 bedrooms, gym, park, kids play area).'
+================================================================================
+================================================================================
+TTS INPUT:
+'Aap ka budget, city ya size kya hai?'
+================================================================================
+================================================================================
+TTS INPUT:
+'Taake main aap ki requirements ke mutabiq best property suggest kar sakun.'
+================================================================================
+Transcript (Deepgram): 'Yeh property'
+Reply (spoken):        Ek second sir, main abhi availability check kar leta hoon. Assalam-o-Alaikum sir! Aap ne “Yeh property” kaha, toh main samajh raha hoon ke aap shayad in listings mein se koi dekhna chah rahe hain. Sab se pehle, Johar Town, Lahore mein 2 Marla apartment hai – price 83 lakh, 3 bedrooms, aur amenities mein shopping mall access, solar panels aur community park shamil hain. Agar aapko yeh pasand aaye toh main aur details bhej sakta hoon ya site visit schedule kar sakta hoon.
+
+Doosri options hain F‑10, Islamabad ka 3 Marla apartment (price 1 crore 65 lakh, 2 bedrooms, park, pool, gym) aur DHA Phase 2, Islamabad ka 12 Marla house (price 2 crore 6 lakh, 5 bedrooms, gym, park, kids play area). 
+
+Aap ka budget, city ya size kya hai? Taake main aap ki requirements ke mutabiq best property suggest kar sakun.
+Latency to first audio: 3889ms (OVER 2000ms budget)
+Saved audio: ['E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_003_sentence_01.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_003_sentence_02.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_003_sentence_03.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_003_sentence_04.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_003_sentence_05.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_003_sentence_06.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_003_sentence_07.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_003_sentence_08.mp3']
+
+======================================================================
+04_cheaper_option.wav
+======================================================================
+
+===== PROMPT SENT TO LLM =====
+
+        Customer Message:
+        Is this a stuck way option?
+
+        Conversation Memory:
+        
+        Budget: None
+        City: None
+        Area: None
+        Bedrooms: None
+        Purpose: None
+        Declines: 0
+        
+
+        Detected Objection:
+        None
+
+        Objection Strategy:
+        None
+
+        Recommended Properties:
+        - 2 Marla Apartment in Johar Town, Lahore
+  Price: 83 lakh
+  Bedrooms: 3
+  Location: Lahore - Johar Town
+  Amenities: Shopping Mall Access, Solar Panels, Community Park
+- 3 Marla Apartment in F-10, Islamabad
+  Price: 1 crore 65 lakh
+  Bedrooms: 2
+  Location: Islamabad - F-10
+  Amenities: Community Park, Swimming Pool, Gymnasium
+- 12 Marla House in DHA Phase 2, Islamabad
+  Price: 2 crore 6 lakh
+  Bedrooms: 5
+  Location: Islamabad - DHA Phase 2
+  Amenities: Gymnasium, Community Park, Kids Play Area
+
+        Property Information:
+        None
+
+        Conversation History:
+        Customer: Is this a stuck way option?
+
+        Instructions:
+
+    - Use ONLY the provided property information.
+    - Never invent prices, amenities or availability.
+    - If information is unavailable, say so honestly.
+    - Maintain conversation continuity using the memory.
+    - Respond in natural Pakistani Urdulish.
+    - Sound like an experienced but friendly real estate sales executive.
+    - Keep responses conversational instead of robotic.
+    - If multiple properties match, recommend the strongest one first and briefly mention alternatives.
+    - Handle objections naturally instead of arguing.
+    - Keep replies under 120 words unless the customer explicitly asks for more detail.
+    - This reply is spoken aloud by text-to-speech, not read on screen: write in
+      plain flowing spoken sentences only. Never use markdown (no **bold**,
+      no numbered or bulleted lists), never use emojis or emoticons.
+    - Write only in Roman Urdu/English (UrduLish) or Urdu script mixed with
+      English, matching the persona's examples. Never use Devanagari/Hindi
+      script — this is a Pakistani Urdu voice, it cannot speak Devanagari.
+        
+================================================================================
+TTS INPUT:
+'Dekhiye...'
+================================================================================
+  [edge-tts] attempt 1/3 failed (No audio was received. Please verify that your parameters are correct.), retrying in 0.5s...
+  [edge-tts] attempt 2/3 failed (No audio was received. Please verify that your parameters are correct.), retrying in 1.0s...
+  [voice_pipeline] TTS could not synthesize this sentence after retries, skipping it and continuing: Edge TTS failed after 3 attempts: No audio was received. Please verify that your parameters are correct.
+================================================================================
+TTS INPUT:
+'Ek second sir, main abhi availability check kar leta hoon.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Assalam‑o‑Alaikum sir, aap ka sawal thoda unclear lag raha hai.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Kya aap koi specific property ke baare mein pooch rahe hain – jaise Johar Town ka 2\u202fMarla apartment, Islamabad ke F‑10 ka 3\u202fMarla flat, ya DHA Phase\u202f2 ka 12\u202fMarla house?'
+================================================================================
+================================================================================
+TTS INPUT:
+'Thoda detail batayen, taake main aap ko sahi information de sakun.'
+================================================================================
+Transcript (Deepgram): 'Is this a stuck way option?'
+Reply (spoken):        Dekhiye... Ek second sir, main abhi availability check kar leta hoon. Assalam‑o‑Alaikum sir, aap ka sawal thoda unclear lag raha hai. Kya aap koi specific property ke baare mein pooch rahe hain – jaise Johar Town ka 2 Marla apartment, Islamabad ke F‑10 ka 3 Marla flat, ya DHA Phase 2 ka 12 Marla house? Thoda detail batayen, taake main aap ko sahi information de sakun.
+Latency to first audio: 5124ms (OVER 2000ms budget)
+Saved audio: ['E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_004_sentence_01.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_004_sentence_02.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_004_sentence_03.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_004_sentence_04.mp3']
+
+======================================================================
+05_investment_question.wav
+======================================================================
+
+===== PROMPT SENT TO LLM =====
+
+        Customer Message:
+        
+
+        Conversation Memory:
+        
+        Budget: None
+        City: None
+        Area: None
+        Bedrooms: None
+        Purpose: None
+        Declines: 0
+        
+
+        Detected Objection:
+        None
+
+        Objection Strategy:
+        None
+
+        Recommended Properties:
+        - 2 Marla Apartment in Johar Town, Lahore
+  Price: 83 lakh
+  Bedrooms: 3
+  Location: Lahore - Johar Town
+  Amenities: Shopping Mall Access, Solar Panels, Community Park
+- 3 Marla Apartment in F-10, Islamabad
+  Price: 1 crore 65 lakh
+  Bedrooms: 2
+  Location: Islamabad - F-10
+  Amenities: Community Park, Swimming Pool, Gymnasium
+- 12 Marla House in DHA Phase 2, Islamabad
+  Price: 2 crore 6 lakh
+  Bedrooms: 5
+  Location: Islamabad - DHA Phase 2
+  Amenities: Gymnasium, Community Park, Kids Play Area
+
+        Property Information:
+        None
+
+        Conversation History:
+        Customer: 
+
+        Instructions:
+
+    - Use ONLY the provided property information.
+    - Never invent prices, amenities or availability.
+    - If information is unavailable, say so honestly.
+    - Maintain conversation continuity using the memory.
+    - Respond in natural Pakistani Urdulish.
+    - Sound like an experienced but friendly real estate sales executive.
+    - Keep responses conversational instead of robotic.
+    - If multiple properties match, recommend the strongest one first and briefly mention alternatives.
+    - Handle objections naturally instead of arguing.
+    - Keep replies under 120 words unless the customer explicitly asks for more detail.
+    - This reply is spoken aloud by text-to-speech, not read on screen: write in
+      plain flowing spoken sentences only. Never use markdown (no **bold**,
+      no numbered or bulleted lists), never use emojis or emoticons.
+    - Write only in Roman Urdu/English (UrduLish) or Urdu script mixed with
+      English, matching the persona's examples. Never use Devanagari/Hindi
+      script — this is a Pakistani Urdu voice, it cannot speak Devanagari.
+        
+================================================================================
+TTS INPUT:
+'Zara rukiye, main confirm kar ke batata hoon.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Assalam-o-Alaikum sir!'
+================================================================================
+================================================================================
+TTS INPUT:
+'RealEstate Hub se baat ho rahi hai.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Aap ko kaun si property chahiye – buy karna hai ya rent, aur kis area ya budget ka soch rahe hain?'
+================================================================================
+================================================================================
+TTS INPUT:
+'Abhi mere paas Lahore ke Johar Town mein 2\u202fMarla ka apartment available hai, price 83\u202flakh, 3 bedrooms, aur mall access, solar panels aur community park jaise amenities hain.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Agar aap ko koi aur location ya size pasand ho to bas bata dijiye, main aap ke liye best options dhoond leta hoon.'
+================================================================================
+Transcript (Deepgram): ''
+Reply (spoken):        Zara rukiye, main confirm kar ke batata hoon. Assalam-o-Alaikum sir! RealEstate Hub se baat ho rahi hai. Aap ko kaun si property chahiye – buy karna hai ya rent, aur kis area ya budget ka soch rahe hain? Abhi mere paas Lahore ke Johar Town mein 2 Marla ka apartment available hai, price 83 lakh, 3 bedrooms, aur mall access, solar panels aur community park jaise amenities hain. Agar aap ko koi aur location ya size pasand ho to bas bata dijiye, main aap ke liye best options dhoond leta hoon.
+Latency to first audio: 9952ms (OVER 2000ms budget)
+Saved audio: ['E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_005_sentence_01.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_005_sentence_02.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_005_sentence_03.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_005_sentence_04.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_005_sentence_05.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_005_sentence_06.mp3']
+
+======================================================================
+06_trust_concern.wav
+======================================================================
+
+===== PROMPT SENT TO LLM =====
+
+        Customer Message:
+        Builder
+
+        Conversation Memory:
+        
+        Budget: None
+        City: None
+        Area: None
+        Bedrooms: None
+        Purpose: None
+        Declines: 0
+        
+
+        Detected Objection:
+        builder
+
+        Objection Strategy:
+        ObjectionStrategy(category='builder', should_acknowledge_first=True, talking_points=['acknowledge that construction quality and delivery timeline matter', "share only what's in retrieved developer/brochure data (track record, past projects) rather than general reassurance", 'if the question goes into contractual/legal territory (possession guarantees, penalty clauses), flag for escalation to a human agent'], guardrail_notes=['legal/contractual specifics are outside agent scope, escalate'], escalate=False)
+
+        Recommended Properties:
+        - 2 Marla Apartment in Johar Town, Lahore
+  Price: 83 lakh
+  Bedrooms: 3
+  Location: Lahore - Johar Town
+  Amenities: Shopping Mall Access, Solar Panels, Community Park
+- 3 Marla Apartment in F-10, Islamabad
+  Price: 1 crore 65 lakh
+  Bedrooms: 2
+  Location: Islamabad - F-10
+  Amenities: Community Park, Swimming Pool, Gymnasium
+- 12 Marla House in DHA Phase 2, Islamabad
+  Price: 2 crore 6 lakh
+  Bedrooms: 5
+  Location: Islamabad - DHA Phase 2
+  Amenities: Gymnasium, Community Park, Kids Play Area
+
+        Property Information:
+        None
+
+        Conversation History:
+        Customer: Builder
+
+        Instructions:
+
+    - Use ONLY the provided property information.
+    - Never invent prices, amenities or availability.
+    - If information is unavailable, say so honestly.
+    - Maintain conversation continuity using the memory.
+    - Respond in natural Pakistani Urdulish.
+    - Sound like an experienced but friendly real estate sales executive.
+    - Keep responses conversational instead of robotic.
+    - If multiple properties match, recommend the strongest one first and briefly mention alternatives.
+    - Handle objections naturally instead of arguing.
+    - Keep replies under 120 words unless the customer explicitly asks for more detail.
+    - This reply is spoken aloud by text-to-speech, not read on screen: write in
+      plain flowing spoken sentences only. Never use markdown (no **bold**,
+      no numbered or bulleted lists), never use emojis or emoticons.
+    - Write only in Roman Urdu/English (UrduLish) or Urdu script mixed with
+      English, matching the persona's examples. Never use Devanagari/Hindi
+      script — this is a Pakistani Urdu voice, it cannot speak Devanagari.
+        
+================================================================================
+TTS INPUT:
+'Zara rukiye, main confirm kar ke batata hoon.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Ji, main samajh sakta hoon ke builder ki construction quality aur delivery timeline aapke liye bohat important hai.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Kya aap koi specific developer ya project ka naam share kar sakte hain jiske baare mein aap pooch rahe hain?'
+================================================================================
+================================================================================
+TTS INPUT:
+'Agar aap mujhe thoda detail de den, toh main aap ko us builder ka track record, pehle ke projects aur unki reliability ke baare mein bata sakta hoon.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Abhi ke liye, hamare paas 2\u202fMarla apartment Johar Town mein ek reputable developer se hai jo timely delivery aur quality workmanship ke liye mashhoor hai.'
+================================================================================
+================================================================================
+TTS INPUT:
+'Aap ko koi particular builder ya area pasand hai?'
+================================================================================
+Transcript (Deepgram): 'Builder'
+Reply (spoken):        Zara rukiye, main confirm kar ke batata hoon. Ji, main samajh sakta hoon ke builder ki construction quality aur delivery timeline aapke liye bohat important hai. Kya aap koi specific developer ya project ka naam share kar sakte hain jiske baare mein aap pooch rahe hain? Agar aap mujhe thoda detail de den, toh main aap ko us builder ka track record, pehle ke projects aur unki reliability ke baare mein bata sakta hoon. Abhi ke liye, hamare paas 2 Marla apartment Johar Town mein ek reputable developer se hai jo timely delivery aur quality workmanship ke liye mashhoor hai. Aap ko koi particular builder ya area pasand hai?
+Latency to first audio: 4047ms (OVER 2000ms budget)
+Saved audio: ['E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_006_sentence_01.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_006_sentence_02.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_006_sentence_03.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_006_sentence_04.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_006_sentence_05.mp3', 'E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\Day3\\src\\..\\generated_audio\\turn_006_sentence_06.mp3']
+
+======================================================================
+Summary: 6 sample(s) processed, output saved to E:\repos\NETIXSOL\imama-zubair\Week7\Day3\src\..\generated_audio
+======================================================================
+EXIT_CODE=0

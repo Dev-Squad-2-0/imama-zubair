@@ -30,12 +30,13 @@ flowchart LR
     C --> E["objection_handler.py<br/>Task 4: price, trust, location..."]
     C --> F["recommendation_engine.py +<br/>structured_retrieval.py (Day 2)"]
 
-    D --> G["LLM reply"]
+    C --> O["speech_behaviors.py opener<br/>Task 2: filler + hesitation, spoken first"]
+    D --> G["LLM reply<br/>streamed sentence by sentence"]
     E --> G
     F --> G
 
-    G --> H["speech_behaviors.py<br/>Task 2: fillers, hesitation, ack"]
-    H --> I["Fish Audio TTS<br/>Task 1"]
+    O --> I["Fish Audio TTS<br/>Task 1"]
+    G --> I
     I --> J["Caller hears reply<br/>under 2s budget"]
 
     C -.-> K["eval/sample_conversations.py<br/>Task 5: human eval scoring"]
@@ -126,20 +127,34 @@ purpose so the two don't mix.)
 ## Task 1: Streaming Voice Pipeline
 
 `voice_pipeline.py` does Deepgram (STT) -> LLM -> Fish Audio TTS -> (Twilio,
-not wired yet). The reply gets split into sentences and each one is
-synthesized separately, so the first sentence starts playing while the rest
-are still being generated. Sentences also get a light `[emotion]` tag
-(question -> `[curious]`, "!" -> `[excited]`, etc.) before TTS, since Fish
-Audio reads those markers to shape delivery — small thing, but it stops
-replies sounding flat.
+not wired yet). The LLM call itself streams (`generate_llm_reply_stream()`
+in `voice_pipeline.py`, called from `conversation_agent.py`'s
+`_generate_reply_stream()`) and each sentence is synthesized and spoken as
+soon as it's complete, instead of waiting for the whole reply. Sentences
+also get a light `[emotion]` tag (question -> `[curious]`, "!" ->
+`[excited]`, etc.) before TTS, since Fish Audio reads those markers to shape
+delivery — small thing, but it stops replies sounding flat.
 
-**What actually gets measured as "latency to first audio":** STT + TTS's
-first chunk + telephony (currently 0, no Twilio yet). It does **not**
-include how long the LLM takes to think — more on why that matters below.
+**What covers the LLM's think time:** `conversation_agent.py` always speaks
+a filler/hesitation opener ("Dekhiye... Ek second sir, main abhi
+availability check kar leta hoon.") first, from `speech_behaviors.py`. That
+opener has zero LLM latency (it's canned text), so it's speaking almost
+immediately while the LLM is still generating the real reply behind it —
+by the time the opener finishes, the first real sentence is usually ready.
+
+**What actually gets measured as "latency to first audio":** STT + (LLM
+latency to the first spoken chunk, `report.llm_first_sentence_ms`) + TTS's
+first chunk + telephony (currently 0, no Twilio yet). Since the opener is
+almost always the first chunk spoken, `llm_first_sentence_ms` is usually 0
+in practice and the real number that matters is STT + opener's TTS latency.
 
 Real numbers, text-scripted path (STT skipped, 15 turns, from
 `outputs/latency_summary.json`): **avg 1069ms, min 766ms, max 1906ms, 0/15
-over the 2000ms budget.**
+over the 2000ms budget.** These predate the streaming change above and the
+Fish Audio switch — haven't re-run `eval/sample_conversations.py` for
+updated numbers yet, but two live spot-checks after wiring streaming in
+came back at 1531ms and 2093ms to first audio (the second one paid Fish
+Audio's cold-connection cost — `warmup_tts()` avoids that in a real session).
 
 Real numbers, full audio-in path (actual Deepgram STT + TTS against
 the 6 `sample_audio/` files): **4.4s-7.2s, every one over budget.** The
@@ -151,15 +166,6 @@ Getting under 2s for real audio needs Deepgram's *streaming* endpoint
 (These numbers are from the Edge TTS days — haven't re-run the full
 audio-in suite since switching to Fish Audio, but the STT side of the
 bottleneck doesn't change either way.)
-
-**The bigger honest gap:** the LLM call in `conversation_agent.py` is
-blocking — it waits for the whole reply before anything gets spoken.
-There's already a working streaming version (`generate_llm_reply_stream()`
-in `voice_pipeline.py`) that would let TTS start on the first sentence
-while the LLM keeps generating, but it isn't hooked up to the live call
-path yet. So "latency to first audio" as currently measured is skipping
-one of the biggest real delays a caller would feel. This is the single
-biggest thing to fix to make "under 2 seconds" true end to end.
 
 **Making sure text is actually speakable:** real LLM output isn't always
 clean. A bare "2." at the start of a line reads as "two dot" out loud and
@@ -255,8 +261,8 @@ rubric for the full per-scenario breakdown.
 
 | File | Real | Still a stub |
 |---|---|---|
-| `voice_pipeline.py` | Deepgram STT (`language=ur`), Fish Audio TTS (`s2.1-pro-free`), text sanitization | Twilio (`telephony_send_audio()` raises on purpose instead of faking success); Deepgram's streaming endpoint (batch endpoint used instead); `generate_llm_reply_stream()` exists but isn't called from the live path |
-| `conversation_agent.py` | Real, blocking LLM call using persona + memory + retrieved facts + objection strategy | not streaming yet; `rag_pipeline.py` (brochure/FAQ semantic search) exists but is never called, so FAQ answers and trust/location objections only use structured SQL, not retrieved text |
+| `voice_pipeline.py` | Deepgram STT (`language=ur`), Fish Audio TTS (`s2.1-pro-free`), text sanitization, streaming LLM call (`generate_llm_reply_stream()`) | Twilio (`telephony_send_audio()` raises on purpose instead of faking success); Deepgram's streaming endpoint (batch endpoint used instead) |
+| `conversation_agent.py` | Streaming LLM call (`_generate_reply_stream()`) using persona + memory + retrieved facts + objection strategy, TTS starts on the first sentence | `rag_pipeline.py` (brochure/FAQ semantic search) exists but is never called, so FAQ answers and trust/location objections only use structured SQL, not retrieved text |
 
 Edge TTS's implementation is still in `voice_pipeline.py`, just commented
 out, in case Fish Audio's free tier ever goes away.
@@ -266,13 +272,13 @@ out, in case Fish Audio's free tier ever goes away.
 Roughly in order of what actually moves the needle on "under 2 seconds,
 sounds like a real person":
 
-1. Wire `generate_llm_reply_stream()` into `conversation_agent.py` so TTS
-   starts on the first sentence instead of waiting for the whole reply —
-   biggest single win for real latency.
-2. Switch Deepgram to its streaming endpoint instead of the batch one.
-3. Wire up Twilio for real phone audio.
-4. Wire `rag_pipeline.py` in so FAQ/trust/location replies are grounded in
+1. Switch Deepgram to its streaming endpoint instead of the batch one —
+   now the biggest latency gap, since the LLM side already streams.
+2. Wire up Twilio for real phone audio.
+3. Wire `rag_pipeline.py` in so FAQ/trust/location replies are grounded in
    actual brochure text, not just SQL fields.
-5. Live mic input was skipped on purpose in favor of `sample_audio/` for
+4. Live mic input was skipped on purpose in favor of `sample_audio/` for
    this environment — swapping it in later only changes how audio reaches
    `stt_transcribe()`, nothing else.
+5. Re-run `eval/sample_conversations.py` for updated latency numbers now
+   that both the TTS provider and the LLM streaming path have changed.

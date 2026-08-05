@@ -1,34 +1,34 @@
 {
   "total_turns_with_latency": 15,
-  "avg_latency_ms": 1068.6,
-  "max_latency_ms": 1906,
-  "min_latency_ms": 766,
-  "turns_over_2000ms_budget": 0,
+  "avg_latency_ms": 1691.1,
+  "max_latency_ms": 2156,
+  "min_latency_ms": 1421,
+  "turns_over_2000ms_budget": 1,
   "per_scenario_latency_ms": {
     "scenario_1_budget_and_area_memory": [
-      1750,
-      860,
-      922,
-      781
+      1639,
+      1843,
+      2156,
+      1656
     ],
     "scenario_2_price_objection_then_decline_twice": [
-      1891,
-      828,
-      968,
-      859
+      1640,
+      1750,
+      1530,
+      1577
     ],
     "scenario_3_investment_guardrail": [
-      813,
-      1906
+      1828,
+      1563
     ],
     "scenario_4_trust_and_builder_concerns": [
-      969,
-      983,
-      766
+      1531,
+      1421,
+      1656
     ],
     "scenario_5_interruption_midcall": [
-      937,
-      796
+      1702,
+      1875
     ]
   }
 }

@@ -6,10 +6,9 @@ pipeline (memory + objections + retrieval + recommendation + speech behaviors
 + voice pipeline latency) and writes out transcripts with per-turn latency,
 so they can be scored by a human against the rubric in human_eval_rubric.md.
 
-This does not produce actual audio (no live phone line / TTS credentials in
-this environment). What's recorded is exactly what would be spoken to the
-caller and how long it took to start speaking, which is what the rubric
-scores (naturalness, persuasiveness, fluency of the text, latency, flow).
+Customer input here is scripted text, so STT is skipped (see README) — but
+the LLM reply and TTS are both real: this does produce actual audio, saved
+to generated_audio/fish_audio/, same as the live call path.
 """
 
 import os

@@ -4,8 +4,10 @@ into one turn-taking conversation agent.
 
     conversation_memory.py    (Day 3, Task 3)  -> what does the agent know so far
     objection_handler.py      (Day 3, Task 4)  -> is this an objection, what's the strategy
-    structured_retrieval.py   (Day 2)          -> exact facts (price, availability)
+    structured_retrieval.py   (Day 2)          -> exact facts (price, availability, schools,
+                                                   hospitals, developer reputation, market data)
     recommendation_engine.py  (Day 2)          -> ranked property matches
+    rag_pipeline.py           (Day 2)          -> semantic search over brochures/descriptions/FAQs
     speech_behaviors.py       (Day 3, Task 2)  -> fillers, hesitation, acknowledgements
     voice_pipeline.py         (Day 3, Task 1)  -> streaming + latency
 
@@ -20,10 +22,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from conversation_memory import ConversationMemory
 from objection_handler import detect_objection, build_strategy, should_stop_pushing
 from speech_behaviors import SpeechBehaviorLayer
-from voice_pipeline import run_voice_turn
+from voice_pipeline import run_voice_turn, generate_llm_reply_stream
 
 import recommendation_engine  # Day 2
-from structured_retrieval import get_property_by_id  # Day 2
+import rag_pipeline  # Day 2
+from structured_retrieval import (  # Day 2
+    get_property_by_id, get_nearby_schools, get_nearby_hospitals,
+    get_developer_by_id, get_location_info, get_payment_plans,
+)
 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -68,21 +74,57 @@ def _extract_mentioned_property_id(customer_text: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str, bool]:
-    """
-    Generates the next reply using the LLM while keeping recommendation,
-    objection detection and memory outside the model.
-    """
+def _build_focus_property_context(focus_property: dict | None) -> tuple[str, str, str, str]:
+    """Nearby schools/hospitals, developer reputation, and location market data for
+    whichever property is currently in focus (explicitly mentioned, else top
+    recommendation). Returns (schools_text, hospitals_text, developer_text, location_text)."""
+    schools_text = hospitals_text = "None found"
+    developer_text = location_text = "Not available"
 
-    if should_stop_pushing(memory.slots.decline_count):
-        return (
-            "Ji theek hai sir, koi masla nahi. Jab bhi aap ready hon, hum yahan hain. Aap ka din acha guzre.",
-            False,
-        )
+    if not focus_property:
+        return schools_text, hospitals_text, developer_text, location_text
 
-    # ---------------------------
-    # Detect objection
-    # ---------------------------
+    location_id = focus_property.get("location_id")
+    developer_id = focus_property.get("developer_id")
+
+    if location_id is not None:
+        schools = get_nearby_schools(location_id)
+        if schools:
+            schools_text = "\n".join(
+                f"- {s['school_name']} ({s['level']}, {s['distance_km']}km away)" for s in schools
+            )
+
+        hospitals = get_nearby_hospitals(location_id)
+        if hospitals:
+            hospitals_text = "\n".join(
+                f"- {h['hospital_name']} ({h['distance_km']}km away, "
+                f"{'emergency available' if h['emergency_available'] else 'no emergency care'})"
+                for h in hospitals
+            )
+
+        loc_info = get_location_info(location_id)
+        if loc_info:
+            location_text = (
+                f"Average price per marla: {_format_price(loc_info['avg_price_per_marla_pkr'])}, "
+                f"price trend: {loc_info['price_trend']}"
+            )
+
+    if developer_id is not None:
+        dev = get_developer_by_id(developer_id)
+        if dev:
+            developer_text = (
+                f"{dev['developer_name']}, founded {dev['founded_year']}, "
+                f"{dev['completed_projects']} completed projects, "
+                f"reputation score {dev['reputation_score']}/5"
+            )
+
+    return schools_text, hospitals_text, developer_text, location_text
+
+
+def _build_prompt_context(customer_text: str, memory: ConversationMemory) -> str:
+    """Builds the user prompt (objection strategy + recommendations + memory + history)
+    shared by both the blocking and streaming reply paths."""
+
     objection_category = detect_objection(customer_text)
 
     strategy = None
@@ -92,9 +134,6 @@ def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str
             memory.slots.decline_count,
         )
 
-    # ---------------------------
-    # Retrieve recommendations
-    # ---------------------------
     candidates = recommendation_engine.recommend_properties(
         **memory.as_recommendation_kwargs(),
         top_n=3,
@@ -102,8 +141,6 @@ def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str
 
     if candidates:
         memory.record_shown_properties(candidates)
-
-    recommendation_text = ""
 
     if candidates:
         recommendation_text = "\n".join(
@@ -121,15 +158,30 @@ def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str
     else:
         recommendation_text = "No matching properties found."
 
-
     history = "\n".join(
-    f"{turn['speaker'].capitalize()}: {turn['text']}"
-    for turn in memory.history[-10:]
-)
+        f"{turn['speaker'].capitalize()}: {turn['text']}"
+        for turn in memory.history[-10:]
+    )
+
     property_info = None
     pid = _extract_mentioned_property_id(customer_text)
     if pid is not None:
         property_info = get_property_by_id(pid)
+
+    focus_property = property_info or (candidates[0] if candidates else None)
+    schools_text, hospitals_text, developer_text, location_text = _build_focus_property_context(focus_property)
+
+    payment_plans = get_payment_plans()
+    payment_plans_text = "\n".join(
+        f"- {p['plan_name']}: {p['down_payment_pct']}% down, "
+        f"{p['duration_years']} years, {p['installment_frequency']} installments"
+        for p in payment_plans
+    ) or "Not available"
+
+    rag_hits = rag_pipeline.retrieve(rag_pipeline.get_collection(), customer_text, top_k=3)
+    rag_text = "\n\n".join(
+        f"[{h['metadata']['source']}] {h['text'][:500]}" for h in rag_hits
+    ) or "No relevant reference material found"
 
     memory_context = f"""
         Budget: {memory.slots.budget}
@@ -139,11 +191,8 @@ def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str
         Purpose: {memory.slots.purpose}
         Declines: {memory.slots.decline_count}
         """
-    
-    # ---------------------------
-    # Build context
-    # ---------------------------
-    user_prompt = f"""
+
+    return f"""
         Customer Message:
         {customer_text}
 
@@ -162,13 +211,32 @@ def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str
         Property Information:
         {property_info}
 
+        Nearby Schools:
+        {schools_text}
+
+        Nearby Hospitals:
+        {hospitals_text}
+
+        Developer Info:
+        {developer_text}
+
+        Location Market Data:
+        {location_text}
+
+        Payment Plans Available:
+        {payment_plans_text}
+
+        Reference Material (brochures/descriptions/FAQs, may not all be relevant to this message):
+        {rag_text}
+
         Conversation History:
         {history}
 
         Instructions:
 
-    - Use ONLY the provided property information.
-    - Never invent prices, amenities or availability.
+    - Use ONLY the information provided above (properties, schools, hospitals,
+      developer, location, payment plans, reference material).
+    - Never invent prices, amenities, availability, or facts not given above.
     - If information is unavailable, say so honestly.
     - Maintain conversation continuity using the memory.
     - Respond in natural Pakistani Urdulish.
@@ -185,43 +253,76 @@ def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str
       script — this is a Pakistani Urdu voice, it cannot speak Devanagari.
         """
 
+
+_STOP_PUSHING_REPLY = (
+    "Ji theek hai sir, koi masla nahi. Jab bhi aap ready hon, hum yahan hain. Aap ka din acha guzre."
+)
+_LLM_ERROR_REPLY = (
+    "Maazrat, iss waqt system temporarily unavailable hai. Thori dair baad dobara try karein."
+)
+
+
+def _generate_reply(customer_text: str, memory: ConversationMemory) -> tuple[str, bool]:
+    """Blocking reply generation. Used by the offline-test path (voice_pipeline.py)."""
+
+    if should_stop_pushing(memory.slots.decline_count):
+        return _STOP_PUSHING_REPLY, False
+
+    user_prompt = _build_prompt_context(customer_text, memory)
+
     print("\n===== PROMPT SENT TO LLM =====")
     print(user_prompt)
-    # ---------------------------
-    # Call LLM
-    # ---------------------------
     try:
         response = llm_client.chat.completions.create(
-        model="smart",temperature=0.6,
-        messages=[
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT + "\n\n" + PERSONA,
-            },
-            {
-                "role": "user",
-                "content": user_prompt,
-            },
-        ],
-    )
-
-        
+            model="smart", temperature=0.6,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT + "\n\n" + PERSONA},
+                {"role": "user", "content": user_prompt},
+            ],
+        )
         reply = response.choices[0].message.content.strip()
         return reply, True
     except Exception as e:
         print("\n========== LLM ERROR ==========")
         print(e)
-        return (
-            "Maazrat, iss waqt system temporarily unavailable hai. "
-            "Thori dair baad dobara try karein.",
-            False,
+        return _LLM_ERROR_REPLY, False
+
+
+def _generate_reply_stream(customer_text: str, memory: ConversationMemory):
+    """Streaming reply generation for the live call path: yields (sentence, latency_ms)
+    so TTS can start on the first sentence while the LLM is still generating the rest."""
+
+    if should_stop_pushing(memory.slots.decline_count):
+        yield _STOP_PUSHING_REPLY, 0
+        return
+
+    user_prompt = _build_prompt_context(customer_text, memory)
+
+    print("\n===== PROMPT SENT TO LLM (stream) =====")
+    print(user_prompt)
+    try:
+        yield from generate_llm_reply_stream(
+            user_prompt, system_prompt=SYSTEM_PROMPT + "\n\n" + PERSONA
         )
+    except RuntimeError as e:
+        print("\n========== LLM STREAM ERROR ==========")
+        print(e)
+        yield _LLM_ERROR_REPLY, 0
 
 
 def run_turn(customer_text: str, memory: ConversationMemory,
-             behaviors: SpeechBehaviorLayer, interrupted: bool = False):
-    """Runs one full customer -> agent turn: memory update, reply composition,
-    speech behavior wrapping, and voice pipeline latency simulation."""
+             behaviors: SpeechBehaviorLayer, interrupted: bool = False,
+             output_dir: str = None):
+    """Runs one full customer -> agent turn. Reply generation streams so TTS
+    starts on the first sentence while the LLM is still generating the rest —
+    the filler/hesitation opener plays immediately and covers that wait.
+
+    customer_text must already be transcribed text, not an audio path/bytes —
+    memory is updated from it directly, before run_voice_turn() would do any
+    STT. output_dir, if given, is where the agent's TTS audio gets saved
+    (passed through to run_voice_turn(); defaults to GENERATED_AUDIO_DIR).
+    """
+    tts_kwargs = {"output_dir": output_dir} if output_dir else {}
 
     if interrupted:
         ack = behaviors.handle_interruption()
@@ -231,19 +332,60 @@ def run_turn(customer_text: str, memory: ConversationMemory,
     memory.add_turn("customer", customer_text)
     memory.update_from_customer_text(customer_text)
 
-    # print(memory.history)
+    if should_stop_pushing(memory.slots.decline_count):
+        report, _ = run_voice_turn(customer_text, _STOP_PUSHING_REPLY, **tts_kwargs)
+        memory.add_turn("agent", _STOP_PUSHING_REPLY)
+        return _STOP_PUSHING_REPLY, report
 
-    reply_text, used_tool = _generate_reply(customer_text, memory)
-    is_reasoning_heavy = used_tool
+    opener_parts = []
+    filler = behaviors.maybe_thinking_filler()
+    if filler:
+        opener_parts.append(filler)
+    opener_parts.append(behaviors.hesitation_for_tool_call())
 
-    spoken_text = behaviors.wrap_reply(
-        reply_text, used_tool=used_tool, is_reasoning_heavy=is_reasoning_heavy
-    )
+    def full_stream():
+        for opener in opener_parts:
+            yield opener, 0
+        yield from _generate_reply_stream(customer_text, memory)
+        laugh = behaviors.maybe_light_laughter(context_is_light=False)
+        if laugh:
+            yield laugh, 0
 
-    report, sentences = run_voice_turn(customer_text, spoken_text)
-    memory.add_turn("agent", spoken_text)
+    report, sentences = run_voice_turn(customer_text, agent_reply_stream=full_stream(), **tts_kwargs)
+    memory.add_turn("agent", report.reply_text)
 
-    return spoken_text, report
+    return report.reply_text, report
+
+
+# ---------- Live microphone conversation loop (commented out) ----------
+#
+# Not wired into the scripted __main__ demo below. run_turn() needs
+# already-transcribed text (it updates memory from customer_text directly,
+# before any STT would happen) — so a live-mic version has to do STT
+# explicitly first, then hand the transcript to run_turn(), same pattern as
+# full_pipeline_test/run_full_pipeline_test.py uses for pre-recorded audio.
+# Needs record_microphone_audio() uncommented in voice_pipeline.py first
+# (and `pip install sounddevice`).
+#
+# from voice_pipeline import record_microphone_audio, stt_transcribe
+#
+# def run_live_mic_conversation(turns: int = 5, seconds_per_turn: float = 5.0):
+#     memory = ConversationMemory()
+#     behaviors = SpeechBehaviorLayer()
+#
+#     for i in range(turns):
+#         audio_bytes, mimetype = record_microphone_audio(duration_s=seconds_per_turn)
+#         transcript, stt_ms = stt_transcribe(audio_bytes, mimetype=mimetype)
+#         print(f"CUSTOMER (transcribed): {transcript!r}  [stt: {stt_ms}ms]")
+#
+#         if not transcript.strip():
+#             print("  (no speech detected, skipping turn)")
+#             continue
+#
+#         spoken, report = run_turn(transcript, memory, behaviors)
+#         print(f"AGENT: {spoken}")
+#         if report:
+#             print(f"  [latency: {report.total_first_audio_ms}ms]")
 
 
 if __name__ == "__main__":

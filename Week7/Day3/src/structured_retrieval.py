@@ -104,6 +104,20 @@ def get_nearby_hospitals(location_id: int):
     return [dict(r) for r in rows]
 
 
+def get_developer_by_id(developer_id: int):
+    conn = _connect()
+    row = conn.execute("SELECT * FROM developers WHERE developer_id = ?", (developer_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_location_info(location_id: int):
+    conn = _connect()
+    row = conn.execute("SELECT * FROM locations WHERE location_id = ?", (location_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
 if __name__ == "__main__":
     print("Sample structured queries:\n")
     sample = search_properties(city="Lahore", purpose="buy")[:3]

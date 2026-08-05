@@ -1,48 +1,9 @@
 """
-Day 3 - Task 1: Streaming Voice Pipeline (production)
+Day 3 - Task 1: Streaming Voice Pipeline
 
-Speech -> LLM -> Voice, target end-to-end latency under 2 seconds.
-
-Real pipeline:
-    Customer audio -> Deepgram (STT) -> [conversation_agent.py composes reply
-    using memory + retrieval + objection handling] -> Edge TTS (TTS) -> caller
-
-This file owns the STT and TTS legs and the latency accounting. It does NOT
-own reply generation: conversation_agent.py is the source of truth for what
-the agent says (memory, structured retrieval, recommendation engine,
-objection strategy, persona all live there). That split matters here because
-when `run_voice_turn()` is called WITH an `agent_reply_text` (this is how
-conversation_agent.py calls it during a live/simulated call), that text is
-already-decided and must be spoken as-is — this file must not re-run it
-through the LLM as if it were a fresh instruction, or it would speak a
-different sentence than conversation_agent.py just decided on
-Sentence-splitting for TTS streaming is done locally with a regex, no LLM
-call involved.
-
-
-LATENCY BUDGET (target: under 2000ms first-audio-out)
-    STT                                          ~150-300ms  (real Deepgram)
-    Reply composition (template or LLM)          owned by conversation_agent.py, not timed here
-    TTS first audio chunk (streaming)             ~150-500ms  (real Edge TTS, varies with text length)
-    Network/telephony overhead (Twilio media)     not wired up yet, see telephony_send_audio()
-    ---------------------------------------------------------
-    Total to FIRST AUDIO CHUNK reported by run_voice_turn() = STT + TTS-to-first-sentence
-
-
-INTEGRATION POINTS NOT WIRED UP IN THIS DEMO (kept clearly separate so they
-can be dropped in without touching the rest of the pipeline):
-    - Live microphone / raw audio capture -> call `stt_transcribe()` with
-      real audio bytes instead of text (see docstring on that function).
-    - Live streaming STT over a websocket (partial transcripts while the
-      caller is still talking) -> `stt_transcribe()` currently uses
-      Deepgram's REST prerecorded endpoint against a full audio buffer,
-      correct for a captured clip but not for a live in-progress stream.
-      Swap in `deepgram.listen.websocket.v("1")` for that; the "returns
-      final transcript + latency" contract stays the same from the caller's
-      side.
-    - Twilio Media Streams playback -> `telephony_send_audio()` is a stub
-      that raises NotImplementedError on purpose, so a missing integration
-      fails loudly instead of silently pretending audio was delivered.
+Pipeline: customer audio -> Deepgram (STT) -> conversation_agent.py (reply) -> Fish Audio (TTS) -> caller.
+Target: under 2000ms to first audio out. Reply generation lives in conversation_agent.py, not here —
+run_voice_turn() speaks agent_reply_text as-is when given one, it never re-runs it through the LLM.
 """
 
 import os
@@ -56,53 +17,35 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from deepgram import DeepgramClient, PrerecordedOptions, FileSource 
+from deepgram import DeepgramClient, PrerecordedOptions, FileSource  #type: ignore
 
 load_dotenv()
 
 # Replies are natural Urdu/UrduLish and routinely contain characters outside
-# cp1252 (Windows' default console/file encoding), e.g. non-breaking hyphens
-# or Urdu script the LLM sometimes mixes in. Printing/writing that text with
-# the default locale encoding raises UnicodeEncodeError mid-call instead of
-# just displaying it, so stdout/stderr are reconfigured to UTF-8 up front.
+# cp1252 (Windows' default console/file encoding)
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 SAMPLE_AUDIO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sample_audio")
-# fish_audio/ subfolder on purpose: existing files in generated_audio/ were
-# synthesized by Edge TTS, a different voice/output profile — nesting Fish
-# Audio's output under its own subfolder keeps the two from being mixed
-# together or silently overwriting each other when swapping TTS providers.
+
 GENERATED_AUDIO_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "generated_audio", "fish_audio"
 )
-# Separate from GENERATED_AUDIO_DIR on purpose: run_voice_turn()'s turn_NNN
-# filenames come from a per-process counter that restarts at turn_001 every
-# run, so a standalone `python voice_pipeline.py` run (this file's own
-# offline test / --single demo) would otherwise silently overwrite whatever
-# eval/sample_conversations.py's live-call-path run left in GENERATED_AUDIO_DIR.
 OFFLINE_TEST_AUDIO_DIR = os.path.join(GENERATED_AUDIO_DIR, "offline_test")
 
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 # nova-3 supports Urdu natively (language=ur) — without this, transcribe_file()
-# defaults to English and returns empty/garbled transcripts for Urdu-script
-# audio (confirmed against sample_audio/: every file transcribed as '' or a
-# handful of wrong English words until this was set).
+# defaults to English 
 DEEPGRAM_LANGUAGE = os.getenv("DEEPGRAM_LANGUAGE", "ur")
 FISH_API_KEY = os.getenv("FISH_AUDIO_API_KEY")
 FISH_VOICE_ID = os.getenv("FISH_VOICE_ID", "")  # reference_id of the cloned/selected voice
-# s2.1-pro-free: Fish Audio's free-tier model (no usage cap), selected via the
-# `model` request header rather than a body field — see tts_stream_audio().
+
 FISH_MODEL = os.getenv("FISH_MODEL", "s2.1-pro-free")
 BASE_URL = os.getenv("BASE_URL")
 API_KEY = os.getenv("API_KEY")
 
-# Clients are created lazily (on first real use) rather than at import time.
-# This keeps `import voice_pipeline` safe even if one of the three API keys
-# isn't set yet in a given environment (e.g. running just the memory/objection
-# demos), while still failing loudly with a clear error the moment a function
-# that actually needs that client gets called.
+
 _deepgram_client: Optional[DeepgramClient] = None
 _llm_client = None
 
@@ -134,9 +77,7 @@ def _get_llm_client() -> OpenAI:
 # ---------- Audio file helpers ----------
 
 def load_audio_file(path: str):
-    """Reads an audio file from disk and returns (audio_bytes, mimetype).
-    Mimetype is guessed from the extension since that's all Deepgram needs
-    for the prerecorded REST endpoint."""
+    """Returns (audio_bytes, mimetype), mimetype guessed from extension."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"Audio file not found: {path}")
 
@@ -155,42 +96,45 @@ def load_audio_file(path: str):
 
 
 def _looks_like_audio_file_path(value) -> bool:
-    """Distinguishes 'this string is a path to an audio file on disk' from
-    'this string is already-transcribed customer text' (the existing usage
-    from conversation_agent.py). Deliberately conservative: only treated as
-    a file path if it has a known audio extension AND actually exists,
-    so ordinary transcript text is never mistaken for a path."""
+    # only true for a real, existing audio file, so transcript text is never mistaken for a path
     if not isinstance(value, str):
         return False
     ext = os.path.splitext(value)[1].lower()
     return ext in (".wav", ".mp3", ".m4a", ".ogg", ".flac") and os.path.exists(value)
 
 
+# ---------- Live microphone capture (commented out — needs `pip install sounddevice`) ----------
+#
+# Not wired into any active code path. Records duration_s seconds from the
+# default input device and returns (wav_bytes, "audio/wav") — same shape as
+# load_audio_file(), so it's a drop-in replacement anywhere audio_bytes/
+# mimetype are used: stt_transcribe(audio_bytes, mimetype), or
+# run_voice_turn(audio_bytes) directly (it already accepts raw bytes).
+# 16kHz mono int16 is a safe default for speech STT, no resampling needed.
+#
+# import sounddevice as sd
+# import wave
+# import io
+#
+# def record_microphone_audio(duration_s: float = 5.0, sample_rate: int = 16000) -> tuple:
+#     print(f"Recording {duration_s}s from microphone... speak now.")
+#     frames = sd.rec(int(duration_s * sample_rate), samplerate=sample_rate, channels=1, dtype="int16")
+#     sd.wait()  # blocks until recording finishes
+#
+#     buffer = io.BytesIO()
+#     with wave.open(buffer, "wb") as wf:
+#         wf.setnchannels(1)
+#         wf.setsampwidth(2)  # int16 = 2 bytes
+#         wf.setframerate(sample_rate)
+#         wf.writeframes(frames.tobytes())
+#
+#     return buffer.getvalue(), "audio/wav"
+
+
 # ---------- Speech-to-Text (Deepgram) ----------
 
 def stt_transcribe(audio_bytes: bytes, mimetype: str = "audio/wav"):
-    """
-    Real Deepgram transcription of a captured audio buffer (v1 REST batch
-    endpoint — this expects a complete audio clip, e.g. one turn's worth of
-    caller audio already captured by the telephony layer, not a live
-    in-progress stream). Returns (transcript, latency_ms).
-
-    Verified against deepgram-sdk 3.7.7 (the version pinned in
-    requirements.txt) — this is `client.listen.rest.v("1").transcribe_file()`
-    with `PrerecordedOptions` / `FileSource`, the correct call shape for this
-    SDK version. `mimetype` is passed through as a `Content-Type` header
-    override (via `transcribe_file(..., headers={...})`) since this SDK
-    sends `application/octet-stream` by default for raw bytes; Deepgram's
-    backend can usually still sniff common containers like WAV/MP3 correctly
-    either way, but passing the real content-type is more correct when it's
-    known (e.g. loaded from a file with a known extension).
-
-    For low-latency live streaming (partial transcripts while the caller is
-    still speaking), use `client.listen.v1.connect(...)` instead — that's a
-    separate, callback-based integration path and out of scope for this
-    file; wiring it in doesn't change the STT latency accounting done here,
-    only how the transcript arrives.
-    """
+    """Batch (not streaming) Deepgram transcription. Returns (transcript, latency_ms)."""
     client = _get_deepgram_client()
     start = time.monotonic()
     try:
@@ -225,41 +169,41 @@ def stt_transcribe(audio_bytes: bytes, mimetype: str = "audio/wav"):
     return transcript, latency_ms
 
 
-# ---------- Reply generation (LLM) for later use----------
+# ---------- Reply generation (LLM streaming) ----------
 
-def generate_llm_reply_stream(prompt: str, model: str = "smart"):
-    """
-    Real streaming LLM call, kept separate from run_voice_turn() on purpose
-    (see module docstring). Yields (sentence, latency_ms) tuples, so a caller
-    can start TTS on the first sentence while the rest is still generating.
+_STREAM_SENTENCE_BOUNDARY = re.compile(r"(?<=[.!?])\s*")
 
-    Not called anywhere in the current Day 3 pipeline —
-    conversation_agent.py still composes replies from templates
-    (`_compose_reply()`). This is the ready-to-use integration point for
-    when that changes: conversation_agent.py would call this with a prompt
-    built from persona + system prompt + conversation slots + retrieved
-    facts + objection strategy, then pass the assembled text into
-    run_voice_turn() exactly as it does today.
-    """
+
+def generate_llm_reply_stream(prompt: str, model: str = "smart", system_prompt: Optional[str] = None):
+    """Streaming LLM call. Yields (sentence, latency_ms) so TTS can start on the first sentence."""
     client = _get_llm_client()
     start = time.monotonic()
-    sentence = ""
+    buffer = ""
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
     try:
         stream = client.chat.completions.create(
             model=model,
             stream=True,
-            messages=[{"role": "user", "content": prompt}],
+            messages=messages,
         )
         for chunk in stream:
             token = chunk.choices[0].delta.content or ""
-            sentence += token
-            if token.strip().endswith((".", "?", "!")):
-                latency_ms = int((time.monotonic() - start) * 1000)
-                yield sentence.strip(), latency_ms
-                sentence = ""
-                start = time.monotonic()
-        if sentence.strip():
-            yield sentence.strip(), int((time.monotonic() - start) * 1000)
+            buffer += token
+            # a delta can carry multiple words or whole sentences at once (gateway-dependent),
+            # so scan the buffer for every complete sentence rather than checking one token
+            while True:
+                m = _STREAM_SENTENCE_BOUNDARY.search(buffer)
+                if not m or m.end() == len(buffer):
+                    break  # no confirmed sentence end yet — more text may still follow
+                sentence, buffer = buffer[:m.end()].strip(), buffer[m.end():]
+                if sentence:
+                    yield sentence, int((time.monotonic() - start) * 1000)
+                    start = time.monotonic()
+        if buffer.strip():
+            yield buffer.strip(), int((time.monotonic() - start) * 1000)
     except Exception as e:
         traceback.print_exc()
         raise RuntimeError(f"LLM streaming failed: {e}") from e
@@ -279,34 +223,8 @@ _EMOJI_PATTERN = re.compile(
 
 
 def _clean_for_speech(text: str) -> str:
-    """Strips formatting that reads fine as text on a screen but breaks or
-    sounds wrong when spoken aloud by TTS:
-      - emoji: seen in practice to make Edge TTS raise NoAudioReceived when
-        a sentence is emoji-only (nothing phonetic to synthesize) — see
-        tts_stream_audio()'s retry docstring, this is the actual fix, retries
-        alone don't help since it's not transient.
-      - markdown bold/italic markers (**text**, __text__, *text*): would
-        otherwise be read literally as "asterisk asterisk" by a naive TTS
-        pass-through, or just sound like stray noise.
-      - numbered/bulleted list markers ("1. ", "- "): a bare "1." at the
-        start of a line both gets read as "one dot" on its own and, worse,
-        its trailing period is indistinguishable from a sentence boundary to
-        _split_into_sentences() below, splitting the number away from the
-        item it labels (that's why isolated "2." / "3." sentences showed up
-        in early transcripts). Merged into the following text instead.
-      - Devanagari script (Hindi, e.g. "धन्यवाद"): a different Unicode block
-        entirely from Urdu's Arabic/Nastaliq script (اردو) — Urdulish is
-        Urdu (Roman-transliterated OR Arabic-script, both are left alone
-        here) plus English, never Devanagari, which belongs to Hindi. The
-        LLM occasionally drifts into it for common words ("thanks" etc.)
-        despite the persona, and EDGE_DEFAULT_VOICE (a Pakistani Urdu voice)
-        genuinely can't synthesize it — confirmed non-transient, the same
-        text fails Edge TTS's NoAudioReceived check identically on every
-        retry, so this strips it rather than retrying uselessly.
-    The LLM is asked for natural spoken UrduLish, not markdown, but models
-    reliably slip into list/emphasis formatting for anything list-shaped —
-    this is the boundary that keeps that from reaching the caller's ear.
-    """
+    # strips emoji, markdown, list markers, and Devanagari (LLM sometimes
+    # drifts into Hindi script, which the Urdu voice can't speak) before TTS
     text = _EMOJI_PATTERN.sub("", text)
     text = re.sub(r"[ऀ-ॿ]+", "", text)  # Devanagari script (Hindi, not Urdu)
     text = re.sub(r"(?m)^[ \t]*(\d+)\.[ \t]*\n*[ \t]*", r"\1) ", text)  # "1.\n\n**x" -> "1) **x"
@@ -321,30 +239,15 @@ def _clean_for_speech(text: str) -> str:
 
 
 def _split_into_sentences(text: str):
-    """Splits an already-composed reply into sentence-sized pieces so TTS can
-    start on the first sentence while later ones are still being synthesized.
-    Pure text splitting, no model call — see module docstring for why this
-    must not go through the LLM again. Runs _clean_for_speech() first so list
-    numbering and emphasis markers don't create false sentence boundaries or
-    empty/symbol-only fragments (see that function's docstring), then drops
-    any leftover fragment with no alphanumeric content as a safety net."""
+    """Splits a reply into sentences for streaming TTS. Pure text splitting, no LLM call."""
     cleaned = _clean_for_speech(text)
     sentences = re.split(r"(?<=[.!?])\s+", cleaned.strip())
     return [s for s in sentences if s and re.search(r"\w", s, flags=re.UNICODE)]
 
 
 # ---------- Emotion tagging for Fish Audio ([tag] syntax) ----------
-#
-# Fish Audio's S2.1-Pro models (the free "s2.1-pro-free" tier included —
-# per Fish's docs, emotion tags work on every pricing tier) read a leading
-# `[emotion]` marker on a sentence and shift delivery accordingly, e.g.
-# "[excited] Bilkul sir, wo option available hai!" This is a small
-# punctuation/keyword heuristic, not real sentiment analysis — it only fires
-# on cues that are unambiguous from the text alone (a question mark, an
-# exclamation mark, an explicit thank-you), so an uncertain sentence is left
-# untagged rather than mistagged. Applied only to the copy sent to TTS —
-# report.transcript / spoken_sentences keep the untagged text, so logs and
-# the eval transcript stay clean.
+# Fish Audio reads a leading `[emotion]` marker and shifts delivery
+# accordingly. Punctuation/keyword heuristic only, applied to the TTS copy only.
 
 _URDU_QUESTION_WORDS = re.compile(
     r"\b(kya|kaisa|kaisi|kaise|kab|kahan|kyun|kyu|kitna|kitni|kitne|konsa|konsi|kaun)\b",
@@ -354,9 +257,6 @@ _GRATITUDE_WORDS = re.compile(r"\b(shukriya|shukria|thank you|thanks)\b", re.IGN
 
 
 def _emotion_tag_for_sentence(sentence: str) -> Optional[str]:
-    """Picks a single Fish Audio emotion tag (or None) for one sentence,
-    based on punctuation/keyword cues alone. See section note above for why
-    this stays deliberately conservative."""
     stripped = sentence.strip()
     if not stripped:
         return None
@@ -370,147 +270,11 @@ def _emotion_tag_for_sentence(sentence: str) -> Optional[str]:
 
 
 def _apply_emotion_tag(sentence: str) -> str:
-    """Prepends a `[emotion]` marker to `sentence` for Fish Audio (see
-    section note above) when a cue is unambiguous, otherwise returns the
-    sentence unmodified — no tag beats a wrong one."""
     tag = _emotion_tag_for_sentence(sentence)
     return f"[{tag}] {sentence}" if tag else sentence
 
 
-# ---------- Text-to-Speech (Edge TTS) — DISABLED, kept for restoration ----------
-#
-# Switched back to Fish Audio: the free tier works with the free model, so
-# Edge TTS is parked here (commented out) rather than removed. To restore
-# it later, uncomment this block and comment out the Fish Audio block below
-# (or just flip which `tts_stream_audio` definition is active — the second
-# definition in the file wins, so whichever block is NOT commented out is
-# the one actually used).
-#
-# Edge TTS's Python SDK (`edge-tts`) is async-only (`edge_tts.Communicate`).
-# The rest of this pipeline is sync, and the public interface of
-# `tts_stream_audio()` must stay sync too (conversation_agent.py and
-# run_voice_turn() below both call it as a plain blocking function). So the
-# async work is run to completion internally with `asyncio.run()` inside a
-# sync wrapper — nothing outside this function needs to know it's async
-# under the hood.
-#
-# import asyncio
-# import edge_tts
-#
-# EDGE_DEFAULT_VOICE = os.getenv("EDGE_TTS_VOICE", "ur-PK-AsadNeural")
-# EDGE_TTS_DEBUG = os.getenv("EDGE_TTS_DEBUG", "").lower() in ("1", "true", "yes")
-# print(f"Using Edge TTS voice: {EDGE_DEFAULT_VOICE} (set EDGE_TTS_VOICE in .env to change)")
-# # ur-PK-AsadNeural / ur-PK-UzmaNeural are the two Urdu (Pakistan) neural
-# # voices Edge TTS ships. Neither one is UrduLish-native the way Fish Audio's
-# # cloned voice was, so this is a straight swap for functionality, not a
-# # perfect voice match — worth a listen before going to production.
-#
-# _tts_warmed_up = False
-#
-#
-# async def _edge_tts_collect(text: str, voice: str):
-#     """Streams synthesized audio chunks from Edge TTS and returns
-#     (audio_bytes, latency_to_first_chunk_ms). Latency is recorded at the
-#     FIRST `{"type": "audio"}` message that arrives over the websocket, not
-#     after the whole response is collected — see the module docstring's note
-#     on the ~2.5s question for how this was verified against edge-tts's
-#     source. With EDGE_TTS_DEBUG=1, every chunk's arrival time (relative to
-#     the start of this call) is printed, so a real multi-second gap before
-#     the first audio chunk is directly visible rather than assumed."""
-#     start = time.monotonic()
-#     communicate = edge_tts.Communicate(text, voice)
-#     chunks = []
-#     first_chunk_latency_ms = None
-#     chunk_index = 0
-#     async for chunk in communicate.stream():
-#         elapsed_ms = int((time.monotonic() - start) * 1000)
-#         if EDGE_TTS_DEBUG:
-#             size = len(chunk.get("data", b"")) if chunk["type"] == "audio" else 0
-#             print(f"  [edge-tts] +{elapsed_ms}ms chunk#{chunk_index} type={chunk['type']} bytes={size}")
-#         chunk_index += 1
-#         if chunk["type"] == "audio":
-#             if first_chunk_latency_ms is None:
-#                 first_chunk_latency_ms = elapsed_ms
-#             chunks.append(chunk["data"])
-#     audio_bytes = b"".join(chunks)
-#     if first_chunk_latency_ms is None:
-#         first_chunk_latency_ms = int((time.monotonic() - start) * 1000)
-#     return audio_bytes, first_chunk_latency_ms
-#
-#
-# def warmup_tts(voice: Optional[str] = None):
-#     """
-#     Pays Edge TTS's one-time connection setup cost (DNS + TLS handshake +
-#     websocket negotiation) up front with a throwaway synthesis call, before
-#     any real conversation turn is timed. edge-tts opens a fresh connection
-#     per `Communicate` instance rather than reusing a session, so that setup
-#     cost lands in full on whichever call happens to go first — in a live
-#     call, that's the customer's first reply, which is exactly the number
-#     you don't want inflated. Call this once when a call/session starts (or
-#     once at process startup for a long-running service) rather than
-#     treating its latency as representative of steady-state performance.
-#
-#     Safe to skip; just means the first real tts_stream_audio() call pays
-#     the connection cost instead.
-#     """
-#     global _tts_warmed_up
-#     try:
-#         tts_stream_audio("hi", voice_id=voice)
-#         _tts_warmed_up = True
-#     except Exception as e:
-#         traceback.print_exc()
-#         # Don't let a warmup failure block real calls — the real call will
-#         # surface the same error with proper context if it's still broken.
-#         print(f"TTS warmup call failed (non-fatal, continuing): {e}")
-#
-#
-# EDGE_TTS_MAX_RETRIES = int(os.getenv("EDGE_TTS_MAX_RETRIES", "3"))
-# EDGE_TTS_RETRY_BACKOFF_S = 0.5  # doubles each retry: 0.5s, 1s, 2s...
-#
-#
-# def tts_stream_audio(text: str, voice_id: Optional[str] = None):
-#     """
-#     Real Edge TTS call (sync wrapper around the async `edge-tts` SDK).
-#     Measures time-to-first-audio-chunk as the reported latency (what
-#     actually matters for "does the caller hear something soon"), while
-#     still returning the full synthesized audio for this sentence so it can
-#     be played/queued. See the module docstring for why a slow first call is
-#     connection setup cost, not this function buffering the whole response —
-#     and consider calling `warmup_tts()` once per call/session to avoid that
-#     cost landing on a real timed turn.
-#
-#     voice_id here is an Edge TTS voice name (e.g. "ur-PK-AsadNeural"), not a
-#     Fish Audio reference_id — same parameter slot, different meaning, kept
-#     so the function signature didn't need to change.
-#
-#     Retries on transient failures (e.g. edge-tts's `NoAudioReceived`, seen in
-#     practice on isolated short sentences against Microsoft's websocket
-#     endpoint with no server-side explanation) with a short exponential
-#     backoff, since edge-tts opens a fresh, unauthenticated websocket per call
-#     with no retry of its own — a single dropped connection would otherwise
-#     kill the rest of the caller's reply mid-sentence, which reads as a
-#     dropped call to the customer. Only raises once retries are exhausted.
-#
-#     Returns (audio_bytes, latency_to_first_chunk_ms).
-#     """
-#     voice = voice_id or EDGE_DEFAULT_VOICE
-#     last_error = None
-#     for attempt in range(1, EDGE_TTS_MAX_RETRIES + 1):
-#         try:
-#             audio_bytes, latency_ms = asyncio.run(_edge_tts_collect(text, voice))
-#             if not audio_bytes:
-#                 raise RuntimeError("Edge TTS returned no audio data.")
-#             return audio_bytes, latency_ms
-#         except Exception as e:
-#             last_error = e
-#             if attempt < EDGE_TTS_MAX_RETRIES:
-#                 backoff_s = EDGE_TTS_RETRY_BACKOFF_S * (2 ** (attempt - 1))
-#                 print(f"  [edge-tts] attempt {attempt}/{EDGE_TTS_MAX_RETRIES} failed "
-#                       f"({e}), retrying in {backoff_s}s...")
-#                 time.sleep(backoff_s)
-#
-#     traceback.print_exception(type(last_error), last_error, last_error.__traceback__)
-#     raise RuntimeError(f"Edge TTS failed after {EDGE_TTS_MAX_RETRIES} attempts: {last_error}") from last_error
+# Edge TTS implementation (used before switching to Fish Audio) is in git history.
 
 
 # ---------- Text-to-Speech (Fish Audio) ----------
@@ -519,36 +283,18 @@ _tts_warmed_up = False
 
 
 def warmup_tts(voice: Optional[str] = None):
-    """
-    Pays Fish Audio's one-time HTTPS connection setup cost (DNS + TLS
-    handshake) up front with a throwaway synthesis call, before any real
-    conversation turn is timed. Call this once when a call/session starts
-    (or once at process startup for a long-running service) rather than
-    treating its latency as representative of steady-state performance.
-
-    Safe to skip; just means the first real tts_stream_audio() call pays
-    the connection cost instead.
-    """
+    """Pays the one-time connection setup cost before a real turn is timed. Safe to skip."""
     global _tts_warmed_up
     try:
         tts_stream_audio("hi", voice_id=voice)
         _tts_warmed_up = True
     except Exception as e:
         traceback.print_exc()
-        # Don't let a warmup failure block real calls — the real call will
-        # surface the same error with proper context if it's still broken.
         print(f"TTS warmup call failed (non-fatal, continuing): {e}")
 
 
 def tts_stream_audio(text: str, voice_id: Optional[str] = None):
-    """
-    Real Fish Audio TTS call. Streams the HTTP response body and measures
-    time-to-first-byte as the reported latency (what actually matters for
-    "does the caller hear something soon"), while still returning the full
-    synthesized audio for this sentence so it can be played/queued.
-
-    Returns (audio_bytes, latency_to_first_byte_ms).
-    """
+    """Real Fish Audio TTS call. Returns (audio_bytes, latency_to_first_byte_ms)."""
     if not FISH_API_KEY:
         raise RuntimeError("FISH_AUDIO_API_KEY is not set. Set it in your .env before calling TTS.")
 
@@ -597,19 +343,7 @@ def tts_stream_audio(text: str, voice_id: Optional[str] = None):
 # ---------- Telephony (Twilio) — integration point, not wired up ----------
 
 def telephony_send_audio(audio_bytes: bytes):
-    """
-    INTEGRATION POINT — not implemented in this demo. In production this
-    pushes synthesized audio into the active Twilio <Stream> media websocket
-    so the caller hears it. Raises on purpose rather than pretending audio
-    was delivered, so a missing integration fails loudly instead of silently
-    reporting a fake "success".
-
-    Wiring this in later doesn't change anything upstream: TTS still returns
-    audio bytes the same way, this function is just what ships them to the
-    phone line, and `run_voice_turn()` already accounts for a telephony
-    overhead line item in the latency report (currently 0, since there's no
-    live call to measure against).
-    """
+    """Not implemented — raises on purpose instead of faking delivery. Wire to Twilio <Stream>."""
     raise NotImplementedError(
         "Twilio Media Streams integration is not implemented in this demo. "
         "Wire this to your active Twilio <Stream> websocket to send `audio_bytes` "
@@ -618,9 +352,6 @@ def telephony_send_audio(audio_bytes: bytes):
 
 
 def telephony_overhead():
-    """Real Twilio round-trip overhead once telephony_send_audio() is wired
-    up and can be measured. Returns 0 for now rather than a guessed number,
-    since there's no live call in this demo to time."""
     return 0
 
 
@@ -652,25 +383,8 @@ def _next_turn_id() -> str:
 
 
 def _generate_conversation_reply(customer_text: str) -> str:
-    """
-    Drives conversation_agent.py's reply generation for a single, isolated
-    turn — used only in OFFLINE TEST mode (see module docstring), when
-    run_voice_turn() is called without an agent_reply_text and has to come
-    up with the reply itself instead of receiving one from a live
-    orchestrator.
-
-    Imported lazily, inside this function, specifically to avoid a circular
-    import: conversation_agent.py does `from voice_pipeline import
-    run_voice_turn` at its top level, so importing conversation_agent back
-    at voice_pipeline.py's top level would deadlock the import graph. By the
-    time this function actually runs, both modules have already finished
-    loading, so the import below just reuses conversation_agent's
-    already-loaded module object.
-
-    Builds a fresh, single-turn ConversationMemory rather than reusing any
-    session state — this is a standalone per-file test, not a multi-turn
-    call, so there's no prior context to carry.
-    """
+    """Offline-test-only: generates a reply when run_voice_turn() gets no agent_reply_text."""
+    # imported lazily to avoid a circular import with conversation_agent.py
     import conversation_agent as _ca
 
     memory = _ca.ConversationMemory()
@@ -687,14 +401,7 @@ def _generate_conversation_reply(customer_text: str) -> str:
 
 
 def _save_audio_files(audio_chunks, turn_id: str, output_dir: str):
-    """Saves each sentence's synthesized audio as its own MP3 file (Fish
-    Audio already returns MP3-encoded bytes, per `format: "mp3"` in the
-    request). Naive byte-concatenation of
-    independently synthesized MP3 clips isn't a well-formed single MP3
-    stream (each carries its own frame headers), so sentences are kept as
-    separate files rather than joined into one — reliable playback matters
-    more here than a single output file. Returns the list of saved paths,
-    same order as audio_chunks."""
+    """Saves each sentence as its own MP3 (can't concatenate separately-encoded MP3s cleanly)."""
     os.makedirs(output_dir, exist_ok=True)
     paths = []
     for i, audio_bytes in enumerate(audio_chunks, start=1):
@@ -706,42 +413,16 @@ def _save_audio_files(audio_chunks, turn_id: str, output_dir: str):
 
 
 def run_voice_turn(customer_speech_text, agent_reply_text: Optional[str] = None,
+                    agent_reply_stream=None,
                     budget_ms: int = 2000, save_audio: bool = True,
                     output_dir: str = GENERATED_AUDIO_DIR):
     """
-    Runs one full conversational turn through the real STT/TTS pipeline and
-    returns (latency_report, spoken_sentences) — same 2-tuple shape as
-    before, so conversation_agent.py's existing call
-    (`run_voice_turn(customer_text, spoken_text)`) needs no changes.
+    Runs one full conversational turn through STT/TTS. Returns (latency_report, spoken_sentences).
 
-    customer_speech_text: one of
-        - a path to an existing audio file (.wav/.mp3/.m4a/.ogg/.flac) — the
-          file is loaded from disk and transcribed with real Deepgram STT.
-          This is the offline-test path: point it at a file in
-          sample_audio/.
-        - raw audio bytes captured from the caller for this turn — also
-          transcribed with real Deepgram STT.
-        - a plain string that is NOT an existing file path — treated as
-          already-transcribed text (this is how conversation_agent.py calls
-          it today, since there's no live audio capture wired into that
-          path yet). STT is skipped (stt_ms=0) rather than faked.
-
-    agent_reply_text: one of
-        - the full, already-composed text reply (what conversation_agent.py
-          passes today) — spoken as-is via TTS. See module docstring for
-          why it is deliberately NOT re-run through the LLM/pipeline here.
-        - None — OFFLINE TEST mode. Requires customer_speech_text to be
-          audio (file path or bytes) so there's a real transcript to work
-          from. The transcript is passed through conversation_agent.py's
-          reply generation (`_generate_conversation_reply()`) to produce
-          the text that gets spoken. Used by this file's own `__main__`
-          block against sample_audio/.
-
-    save_audio / output_dir: when save_audio is True (default), each
-    sentence's synthesized audio is written to output_dir as its own MP3
-    file (see `_save_audio_files()`), and the saved paths are attached at
-    report.audio_file_paths. Raw bytes are still attached at
-    report.audio_chunks either way.
+    customer_speech_text: audio file path, raw audio bytes, or already-transcribed text.
+    agent_reply_text: text to speak as-is, or None to generate it (offline-test mode, needs audio input).
+    agent_reply_stream: iterable of (sentence, llm_latency_ms), e.g. from generate_llm_reply_stream() —
+        used instead of agent_reply_text when the caller wants TTS to start before the LLM finishes.
     """
     report = TurnLatencyReport()
     turn_id = _next_turn_id()
@@ -763,25 +444,33 @@ def run_voice_turn(customer_speech_text, agent_reply_text: Optional[str] = None,
     report.stt_ms = stt_ms
     report.transcript = transcript
 
-    # ---- resolve agent_reply_text ----
-    if agent_reply_text is None:
-        if not is_audio_input:
-            raise ValueError(
-                "run_voice_turn(agent_reply_text=None) needs real audio input "
-                "(a file path or bytes) to transcribe and reply to — got plain "
-                "text with no reply supplied. Either pass agent_reply_text "
-                "explicitly, or pass real audio for offline-test mode."
-            )
-        agent_reply_text = _generate_conversation_reply(transcript)
+    # ---- resolve the reply into a stream of (raw_sentence, llm_latency_ms) ----
+    if agent_reply_stream is not None:
+        candidate_chunks = agent_reply_stream
+    else:
+        if agent_reply_text is None:
+            if not is_audio_input:
+                raise ValueError(
+                    "run_voice_turn(agent_reply_text=None) needs real audio input "
+                    "(a file path or bytes) to transcribe and reply to — got plain "
+                    "text with no reply supplied. Either pass agent_reply_text "
+                    "explicitly, or pass real audio for offline-test mode."
+                )
+            agent_reply_text = _generate_conversation_reply(transcript)
+        candidate_chunks = ((s, 0) for s in _split_into_sentences(agent_reply_text))
 
-    report.reply_text = agent_reply_text
-    candidate_sentences = _split_into_sentences(agent_reply_text)
     spoken_sentences = []  # only sentences that actually got synthesized, in order
+    reply_parts = []
     running_total = report.stt_ms
     first_sentence_done = False
 
-    for sentence in candidate_sentences:
-        tagged_sentence = _apply_emotion_tag(sentence)
+    for raw_sentence, llm_ms in candidate_chunks:
+        cleaned = _clean_for_speech(raw_sentence)
+        if not cleaned or not re.search(r"\w", cleaned, flags=re.UNICODE):
+            continue
+        reply_parts.append(cleaned)
+
+        tagged_sentence = _apply_emotion_tag(cleaned)
         print("=" * 80)
         print("TTS INPUT:")
         print(repr(tagged_sentence))
@@ -789,20 +478,19 @@ def run_voice_turn(customer_speech_text, agent_reply_text: Optional[str] = None,
         try:
             audio_bytes, tts_ms = tts_stream_audio(tagged_sentence)
         except RuntimeError as e:
-            # A Fish Audio call can fail for a single sentence (HTTP error,
-            # empty response body) without that being a sign the whole call
-            # is broken. One unspeakable sentence shouldn't kill the rest of
-            # the reply / the whole call, so it's logged and skipped rather
-            # than propagated.
+            # one bad sentence shouldn't kill the rest of the reply
             print(f"  [voice_pipeline] TTS could not synthesize this sentence after "
                   f"retries, skipping it and continuing: {e}")
-            report.skipped_sentences.append((sentence, str(e)))
+            report.skipped_sentences.append((cleaned, str(e)))
             continue
 
-        spoken_sentences.append(sentence)
+        spoken_sentences.append(cleaned)
         report.audio_chunks.append(audio_bytes)
 
         if not first_sentence_done:
+            report.llm_first_sentence_ms = llm_ms
+            running_total += llm_ms
+
             report.tts_first_chunk_ms = tts_ms
             running_total += tts_ms
 
@@ -816,6 +504,8 @@ def run_voice_turn(customer_speech_text, agent_reply_text: Optional[str] = None,
 
         report.per_sentence_ms.append(tts_ms)
 
+    report.reply_text = " ".join(reply_parts)
+
     if save_audio and report.audio_chunks:
         report.audio_file_paths = _save_audio_files(report.audio_chunks, turn_id, output_dir)
 
@@ -826,19 +516,7 @@ def run_voice_turn(customer_speech_text, agent_reply_text: Optional[str] = None,
 
 def run_offline_test(sample_audio_dir: str = SAMPLE_AUDIO_DIR,
                       output_dir: str = OFFLINE_TEST_AUDIO_DIR):
-    """
-    Runs every audio file in sample_audio_dir through the complete pipeline:
-    load file -> Deepgram STT -> conversation_agent.py reply generation ->
-    Fish Audio TTS -> save MP3s to output_dir (defaults to OFFLINE_TEST_AUDIO_DIR,
-    a subfolder of GENERATED_AUDIO_DIR — kept separate from the live-call
-    path's output so this standalone test never overwrites turn_NNN files a
-    real/eval-script call already saved there). No live phone call, no mocked
-    stages — this is the "offline end-to-end test" entry point.
-
-    Calls warmup_tts() once before the timed runs so the first sample's
-    latency isn't inflated by one-time connection setup (see module
-    docstring). Each sample's own latency is still reported individually.
-    """
+    """Runs every file in sample_audio_dir through STT -> reply generation -> TTS."""
     if not os.path.isdir(sample_audio_dir):
         print(f"No sample_audio directory found at {sample_audio_dir}")
         return
@@ -888,16 +566,7 @@ def run_offline_test(sample_audio_dir: str = SAMPLE_AUDIO_DIR,
 
 
 if __name__ == "__main__":
-    # This demo calls real Deepgram/Fish Audio APIs. Deepgram needs a valid
-    # key in your .env (DEEPGRAM_API_KEY); Fish Audio needs FISH_AUDIO_API_KEY
-    # (free tier, s2.1-pro-free model — see FISH_MODEL above).
-    # Fails loudly with a clear message if a call errors, rather than
-    # silently falling back to mock numbers — that mismatch is exactly what
-    # the Day 3 mock version was replaced to avoid.
-    #
-    # Default behavior: run the full offline end-to-end test against every
-    # file in sample_audio/. Pass a single text turn instead with
-    # `python3 voice_pipeline.py --single`.
+    # default: offline test against sample_audio/. `--single` runs one text turn instead.
     import sys
 
     if "--single" in sys.argv:

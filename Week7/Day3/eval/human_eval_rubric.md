@@ -39,17 +39,16 @@ came in under budget (766-1906ms, see `outputs/latency_summary.json`) —
 that number only covers TTS, since this eval path skips STT by design (see
 the README). Run against real audio instead of scripted text, real
 Deepgram STT took 4.4-7.2s by itself, over budget before TTS even starts.
-And neither number includes how long the LLM takes to think, since that
-call is blocking today. So "latency" here is honestly more like "TTS was
-fast," not "the caller waited under 2 seconds" — see the README's Task 1
-section for the fix (streaming the LLM call, switching Deepgram to its
-streaming endpoint).
+And this table predates the LLM call becoming streaming (it was blocking
+when this eval ran) — see the README's Task 1 section. So "latency" here is
+honestly more like "TTS was fast," not "the caller waited under 2 seconds."
+This eval hasn't been re-run since streaming + Fish Audio landed.
 
 ## Honest Gaps Found During Evaluation
 
 - **Latency as measured doesn't reflect what a caller actually experiences.**
   Covered above — it's the main reason Latency isn't scored higher despite
-  a perfect on-paper budget record.
+  a perfect on-paper budget record. (Predates the LLM streaming fix — see README.)
 - **Filler + hesitation can stack on the same turn** (scenario 1, turn 4),
   since both are gated on the same "a tool call is happening" condition.
   Sounds a little over-eager. Worth tuning so at most one fires per turn.

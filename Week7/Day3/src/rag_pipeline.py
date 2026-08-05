@@ -156,6 +156,27 @@ def build_vector_store(chunk_size=200, overlap=40, collection_name="knowledge_ba
     return collection, embed_fn, len(chunks)
 
 
+_collection = None
+
+
+def get_collection(collection_name="knowledge_base"):
+    """Connects to the already-built persisted collection instead of
+    rebuilding it — build_vector_store() deletes and re-embeds everything,
+    too slow/destructive to call on a live conversation path."""
+    global _collection
+    if _collection is None:
+        embed_fn = SentenceTransformerEmbeddingFunction()
+        client = chromadb.PersistentClient(path=CHROMA_DIR)
+        try:
+            _collection = client.get_collection(name=collection_name, embedding_function=embed_fn)
+        except Exception as e:
+            raise RuntimeError(
+                f"Chroma collection '{collection_name}' not found at {CHROMA_DIR}. "
+                f"Run `python rag_pipeline.py` once to build it."
+            ) from e
+    return _collection
+
+
 # ---------- 5. Retriever ----------
 
 def retrieve(collection, query, top_k=4):

@@ -7,8 +7,10 @@ stated requirements (budget/city/area/bedrooms/purpose, straight out of
 ConversationMemory.slots).
 
 Deliberately reuses calendar_integration.py's AppointmentDetails instead of
-defining its own client/property/time fields
+defining its own client/property/time fields.
 
+Auth: Gmail API, OAuth installed-app flow, same GOOGLE_CREDENTIALS_PATH
+Desktop app client as calendar_integration.py.
 
 Setup:
     pip install google-api-python-client google-auth-oauthlib google-auth-httplib2
@@ -152,96 +154,6 @@ def send_appointment_notification(details: AppointmentDetails, requirements_text
         sent = service.users().messages().send(
             userId="me", body={"raw": raw}
         ).execute()
-        return EmailResult(success=True, message_id=sent.get("id"))
-    except HttpError as e:
-        return EmailResult(success=False, error=f"Gmail API error: {e}")
-    except RuntimeError as e:
-        return EmailResult(success=False, error=str(e))
-
-
-def _build_reschedule_body(details: AppointmentDetails, old_start, requirements_text: str) -> str:
-    return (
-        f"Appointment rescheduled via the RealEstate Hub voice agent.\n\n"
-        f"Previous Meeting Time: {old_start.strftime('%A, %d %B %Y at %I:%M %p')}\n"
-        f"New Meeting Time: {details.start_datetime.strftime('%A, %d %B %Y at %I:%M %p')}\n"
-        f"Property: {details.property_title}"
-        + (f" (ID {details.property_id})" if details.property_id is not None else "")
-        + "\n\n"
-        f"Client Details:\n"
-        f"  Name: {details.client_name}\n"
-        f"  Phone: {details.client_phone}\n\n"
-        f"Client Requirements:\n{requirements_text}\n\n"
-        f"This is an automated notification, no reply needed."
-    )
-
-
-def send_reschedule_notification(details: AppointmentDetails, old_start_datetime,
-                                  requirements_text: str, to_email: Optional[str] = None) -> EmailResult:
-    """Notifies the employee an appointment moved to a new time. details.start_datetime
-    should already hold the NEW time (same object create_appointment_event()/
-    reschedule_appointment_event() used), old_start_datetime is passed in
-    separately so the email can show both."""
-    recipient = to_email or details.employee_email or EMPLOYEE_EMAIL
-    if not recipient:
-        return EmailResult(
-            success=False,
-            error="No employee email available (not passed in, not set on details, "
-                  "and EMPLOYEE_EMAIL is not set in .env)",
-        )
-
-    body = _build_reschedule_body(details, old_start_datetime, requirements_text)
-    message = MIMEText(body)
-    message["to"] = recipient
-    message["subject"] = f"Appointment Rescheduled: {details.client_name} - {details.property_title}"
-    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
-
-    try:
-        service = get_gmail_service()
-        sent = service.users().messages().send(userId="me", body={"raw": raw}).execute()
-        return EmailResult(success=True, message_id=sent.get("id"))
-    except HttpError as e:
-        return EmailResult(success=False, error=f"Gmail API error: {e}")
-    except RuntimeError as e:
-        return EmailResult(success=False, error=str(e))
-
-
-def _build_cancellation_body(details: AppointmentDetails, reason: str) -> str:
-    return (
-        f"Appointment cancelled via the RealEstate Hub voice agent.\n\n"
-        f"Cancelled Meeting Time: {details.start_datetime.strftime('%A, %d %B %Y at %I:%M %p')}\n"
-        f"Property: {details.property_title}"
-        + (f" (ID {details.property_id})" if details.property_id is not None else "")
-        + "\n\n"
-        f"Client Details:\n"
-        f"  Name: {details.client_name}\n"
-        f"  Phone: {details.client_phone}\n\n"
-        f"Reason: {reason or 'Not provided'}\n\n"
-        f"This is an automated notification, no reply needed."
-    )
-
-
-def send_cancellation_notification(details: AppointmentDetails, reason: str = "",
-                                    to_email: Optional[str] = None) -> EmailResult:
-    """Notifies the employee an appointment was cancelled, with the reason
-    if the customer gave one (matches cancel_appointment_event()'s optional
-    reason param in calendar_integration.py)."""
-    recipient = to_email or details.employee_email or EMPLOYEE_EMAIL
-    if not recipient:
-        return EmailResult(
-            success=False,
-            error="No employee email available (not passed in, not set on details, "
-                  "and EMPLOYEE_EMAIL is not set in .env)",
-        )
-
-    body = _build_cancellation_body(details, reason)
-    message = MIMEText(body)
-    message["to"] = recipient
-    message["subject"] = f"Appointment Cancelled: {details.client_name} - {details.property_title}"
-    raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
-
-    try:
-        service = get_gmail_service()
-        sent = service.users().messages().send(userId="me", body={"raw": raw}).execute()
         return EmailResult(success=True, message_id=sent.get("id"))
     except HttpError as e:
         return EmailResult(success=False, error=f"Gmail API error: {e}")

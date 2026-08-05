@@ -5,7 +5,6 @@ Day 4 - Task 1: Google Calendar Integration
 Setup:
     pip install google-api-python-client google-auth-oauthlib google-auth-httplib2
 """
-
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -182,72 +181,6 @@ def create_appointment_event(details: AppointmentDetails) -> CalendarEventResult
         return CalendarEventResult(success=False, error=f"Google Calendar API error: {e}")
     except RuntimeError as e:
         # credentials/config problems from get_calendar_service()
-        return CalendarEventResult(success=False, error=str(e))
-
-
-def reschedule_appointment_event(event_id: str, new_start_datetime: datetime,
-                                  new_end_datetime: Optional[datetime] = None) -> CalendarEventResult:
-    """Moves an existing event to a new time. Fetches the event first so
-    everything else (attendees, description, summary) is left untouched —
-    system_prompt.md's policy is "confirm the original appointment details
-    before changing anything", this is the part of that which is Claude's
-    to enforce in code: only start/end change, nothing else gets
-    overwritten by accident."""
-    if not event_id:
-        return CalendarEventResult(success=False, error="event_id is required to reschedule")
-    if not new_start_datetime:
-        return CalendarEventResult(success=False, error="new_start_datetime is required to reschedule")
-
-    try:
-        service = get_calendar_service()
-        existing = service.events().get(calendarId=GOOGLE_CALENDAR_ID, eventId=event_id).execute()
-    except HttpError as e:
-        return CalendarEventResult(success=False, error=f"Could not find existing appointment: {e}")
-    except RuntimeError as e:
-        return CalendarEventResult(success=False, error=str(e))
-
-    # keep original duration if no new end time given
-    try:
-        old_start = datetime.fromisoformat(existing["start"]["dateTime"])
-        old_end = datetime.fromisoformat(existing["end"]["dateTime"])
-        original_duration = old_end - old_start
-    except (KeyError, ValueError):
-        original_duration = timedelta(minutes=_DEFAULT_DURATION_MINUTES)
-
-    new_end = new_end_datetime or (new_start_datetime + original_duration)
-
-    existing["start"] = {"dateTime": new_start_datetime.isoformat(), "timeZone": _DEFAULT_TIMEZONE}
-    existing["end"] = {"dateTime": new_end.isoformat(), "timeZone": _DEFAULT_TIMEZONE}
-
-    try:
-        updated = service.events().update(
-            calendarId=GOOGLE_CALENDAR_ID, eventId=event_id, body=existing, sendUpdates="all"
-        ).execute()
-        return CalendarEventResult(success=True, event_id=updated.get("id"), html_link=updated.get("htmlLink"))
-    except HttpError as e:
-        return CalendarEventResult(success=False, error=f"Google Calendar API error: {e}")
-
-
-def cancel_appointment_event(event_id: str, reason: str = "") -> CalendarEventResult:
-    """Cancels (deletes) an existing appointment. system_prompt.md: "confirm
-    which appointment is being cancelled ... before finalizing" — that
-    confirmation is a conversation-layer responsibility (conversation_agent.py
-    /  the LLM turn), this function just does the actual deletion once a
-    specific event_id has already been confirmed. reason is accepted for
-    logging/CRM purposes even though the Calendar API itself has no
-    "cancellation reason" field."""
-    if not event_id:
-        return CalendarEventResult(success=False, error="event_id is required to cancel")
-
-    try:
-        service = get_calendar_service()
-        service.events().delete(
-            calendarId=GOOGLE_CALENDAR_ID, eventId=event_id, sendUpdates="all"
-        ).execute()
-        return CalendarEventResult(success=True, event_id=event_id)
-    except HttpError as e:
-        return CalendarEventResult(success=False, error=f"Google Calendar API error: {e}")
-    except RuntimeError as e:
         return CalendarEventResult(success=False, error=str(e))
 
 

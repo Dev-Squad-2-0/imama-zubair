@@ -11,11 +11,35 @@ properties), its own `data/` and `documents/`, and its own copies of
 from Day 2, so it runs standalone. Day 1 and Day 2 aren't touched.
 
 Everything here is a real API call, not a mock: **Deepgram** for STT (Urdu),
-a real LLM for replies, and **Edge TTS** for voice. Fish Audio was the
-original plan but it's paid, so Edge TTS (free, no key needed) is used
-instead. There's no live microphone in this environment, so `sample_audio/`
-has some pre-recorded Urdu customer lines instead — see below for how those
-get used.
+a real LLM for replies, and **Fish Audio** for voice (the free `s2.1-pro-free`
+model, no paid tier needed). Edge TTS was used for a while when Fish Audio
+was paid-only, but that's fine now. There's no live microphone
+in this environment, so `sample_audio/` has some pre-recorded Urdu customer
+lines instead.
+
+---
+
+## Workflow
+
+```mermaid
+flowchart LR
+    A["Customer audio<br/>(sample_audio/)"] --> B["Deepgram STT<br/>Task 1"]
+    B --> C["conversation_agent.py<br/>turn orchestrator"]
+
+    C --> D["conversation_memory.py<br/>Task 3: budget, area, city..."]
+    C --> E["objection_handler.py<br/>Task 4: price, trust, location..."]
+    C --> F["recommendation_engine.py +<br/>structured_retrieval.py (Day 2)"]
+
+    D --> G["LLM reply"]
+    E --> G
+    F --> G
+
+    G --> H["speech_behaviors.py<br/>Task 2: fillers, hesitation, ack"]
+    H --> I["Fish Audio TTS<br/>Task 1"]
+    I --> J["Caller hears reply<br/>under 2s budget"]
+
+    C -.-> K["eval/sample_conversations.py<br/>Task 5: human eval scoring"]
+```
 
 ---
 
@@ -32,7 +56,7 @@ Day3/
 ├── persona/urdulish_persona.md  # tone + example phrases, source for speech_behaviors.py
 ├── sample_audio/                # pre-recorded Urdu customer lines + the script that made them
 ├── src/
-│   ├── voice_pipeline.py        # Task 1: Deepgram -> LLM -> Edge TTS, latency, TTS-safety cleanup
+│   ├── voice_pipeline.py        # Task 1: Deepgram -> LLM -> Fish Audio TTS, latency, TTS-safety cleanup
 │   ├── speech_behaviors.py      # Task 2: fillers, hesitation, interruption, laughter, ack
 │   ├── conversation_memory.py   # Task 3: slot-based memory across turns
 │   ├── objection_handler.py     # Task 4: objection detection + strategy
@@ -54,8 +78,10 @@ You'll need these in `.env` at the repo root:
 |---|---|---|
 | `DEEPGRAM_API_KEY` | STT | only needed for audio-in paths, not the text-scripted eval |
 | `BASE_URL`, `API_KEY` | LLM replies | any OpenAI-compatible chat endpoint |
-| `EDGE_TTS_VOICE` | TTS (optional) | defaults to `ur-PK-AsadNeural`, no key needed |
-| `DEEPGRAM_LANGUAGE` | STT (optional) | defaults to `ur` — nova-3 mistranscribes Urdu without this, see below |
+| `FISH_AUDIO_API_KEY`, `FISH_VOICE_ID` | TTS | free tier, get the key from fish.audio |
+| `FISH_MODEL` | TTS (optional) | defaults to `s2.1-pro-free` |
+| `DEEPGRAM_LANGUAGE` | STT (optional) | defaults to `ur` — nova-3 mistranscribes Urdu without this
+
 
 ## How to Run
 
@@ -90,17 +116,22 @@ whether a bad reply was the agent's fault or the ASR's.
 One more thing worth knowing: both paths save generated audio with a
 `turn_001`, `turn_002`, ... counter that restarts every run, so running
 `voice_pipeline.py` standalone won't clobber the eval script's audio —
-they write to `generated_audio/offline_test/` and `generated_audio/`
-respectively.
+they write to `generated_audio/fish_audio/offline_test/` and
+`generated_audio/fish_audio/` respectively. (Old Edge TTS output from before
+the switch is still sitting directly in `generated_audio/`, kept separate on
+purpose so the two don't mix.)
 
 ---
 
 ## Task 1: Streaming Voice Pipeline
 
-`voice_pipeline.py` does Deepgram (STT) -> LLM -> Edge TTS -> (Twilio, not
-wired yet). The reply gets split into sentences and each one is synthesized
-separately, so the first sentence starts playing while the rest are still
-being generated.
+`voice_pipeline.py` does Deepgram (STT) -> LLM -> Fish Audio TTS -> (Twilio,
+not wired yet). The reply gets split into sentences and each one is
+synthesized separately, so the first sentence starts playing while the rest
+are still being generated. Sentences also get a light `[emotion]` tag
+(question -> `[curious]`, "!" -> `[excited]`, etc.) before TTS, since Fish
+Audio reads those markers to shape delivery — small thing, but it stops
+replies sounding flat.
 
 **What actually gets measured as "latency to first audio":** STT + TTS's
 first chunk + telephony (currently 0, no Twilio yet). It does **not**
@@ -110,13 +141,16 @@ Real numbers, text-scripted path (STT skipped, 15 turns, from
 `outputs/latency_summary.json`): **avg 1069ms, min 766ms, max 1906ms, 0/15
 over the 2000ms budget.**
 
-Real numbers, full audio-in path (actual Deepgram STT + Edge TTS against
+Real numbers, full audio-in path (actual Deepgram STT + TTS against
 the 6 `sample_audio/` files): **4.4s-7.2s, every one over budget.** The
 original "150-300ms for STT" assumption in an earlier draft of this doc was
 never actually tested — turns out Deepgram's batch/prerecorded endpoint
 genuinely takes several seconds for a real audio clip in this environment.
 Getting under 2s for real audio needs Deepgram's *streaming* endpoint
 (partial transcripts while the caller talks), which isn't wired up yet.
+(These numbers are from the Edge TTS days — haven't re-run the full
+audio-in suite since switching to Fish Audio, but the STT side of the
+bottleneck doesn't change either way.)
 
 **The bigger honest gap:** the LLM call in `conversation_agent.py` is
 blocking — it waits for the whole reply before anything gets spoken.
@@ -130,14 +164,11 @@ biggest thing to fix to make "under 2 seconds" true end to end.
 **Making sure text is actually speakable:** real LLM output isn't always
 clean. A bare "2." at the start of a line reads as "two dot" out loud and
 also confuses the sentence splitter into treating it as its own fragment;
-emoji make Edge TTS return literally no audio for that sentence (confirmed
-in Edge TTS's own source — not a fluke). `_clean_for_speech()` strips both
-before anything reaches TTS. TTS calls also retry on failure, and if a
-sentence still can't be synthesized after retries, that one sentence gets
-skipped and the rest of the reply keeps going rather than the whole turn
-crashing — Edge TTS is an unofficial, undocumented API with no session
-reuse, so the odd zero-audio response for perfectly normal text is just
-something it does sometimes.
+emoji caused problems with Edge TTS specifically (it returned literally no
+audio for an emoji-only sentence). `_clean_for_speech()` strips both before
+anything reaches TTS. If a sentence still can't be synthesized (bad request,
+empty response, network hiccup), that one sentence gets skipped and the rest
+of the reply keeps going rather than the whole turn crashing.
 
 ---
 
@@ -224,11 +255,11 @@ rubric for the full per-scenario breakdown.
 
 | File | Real | Still a stub |
 |---|---|---|
-| `voice_pipeline.py` | Deepgram STT (`language=ur`), Edge TTS, retries + text sanitization | Twilio (`telephony_send_audio()` raises on purpose instead of faking success); Deepgram's streaming endpoint (batch endpoint used instead); `generate_llm_reply_stream()` exists but isn't called from the live path |
+| `voice_pipeline.py` | Deepgram STT (`language=ur`), Fish Audio TTS (`s2.1-pro-free`), text sanitization | Twilio (`telephony_send_audio()` raises on purpose instead of faking success); Deepgram's streaming endpoint (batch endpoint used instead); `generate_llm_reply_stream()` exists but isn't called from the live path |
 | `conversation_agent.py` | Real, blocking LLM call using persona + memory + retrieved facts + objection strategy | not streaming yet; `rag_pipeline.py` (brochure/FAQ semantic search) exists but is never called, so FAQ answers and trust/location objections only use structured SQL, not retrieved text |
 
-Fish Audio's implementation is still in `voice_pipeline.py`, just commented
-out, in case the subscription becomes available later.
+Edge TTS's implementation is still in `voice_pipeline.py`, just commented
+out, in case Fish Audio's free tier ever goes away.
 
 ## Next Steps
 

@@ -91,7 +91,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from openai import OpenAI
-from deepgram import DeepgramClient, PrerecordedOptions, FileSource
+from deepgram import DeepgramClient, PrerecordedOptions, FileSource 
 
 load_dotenv()
 
@@ -105,7 +105,13 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 SAMPLE_AUDIO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sample_audio")
-GENERATED_AUDIO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "generated_audio")
+# fish_audio/ subfolder on purpose: existing files in generated_audio/ were
+# synthesized by Edge TTS, a different voice/output profile — nesting Fish
+# Audio's output under its own subfolder keeps the two from being mixed
+# together or silently overwriting each other when swapping TTS providers.
+GENERATED_AUDIO_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "generated_audio", "fish_audio"
+)
 # Separate from GENERATED_AUDIO_DIR on purpose: run_voice_turn()'s turn_NNN
 # filenames come from a per-process counter that restarts at turn_001 every
 # run, so a standalone `python voice_pipeline.py` run (this file's own
@@ -119,8 +125,11 @@ DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY")
 # audio (confirmed against sample_audio/: every file transcribed as '' or a
 # handful of wrong English words until this was set).
 DEEPGRAM_LANGUAGE = os.getenv("DEEPGRAM_LANGUAGE", "ur")
-FISH_API_KEY = os.getenv("FISH_AUDIO_API_KEY")  # currently unused, kept for Fish Audio restoration
-FISH_VOICE_ID = os.getenv("FISH_VOICE_ID", "")  # reference_id of the cloned/selected voice, unused for now
+FISH_API_KEY = os.getenv("FISH_AUDIO_API_KEY")
+FISH_VOICE_ID = os.getenv("FISH_VOICE_ID", "")  # reference_id of the cloned/selected voice
+# s2.1-pro-free: Fish Audio's free-tier model (no usage cap), selected via the
+# `model` request header rather than a body field — see tts_stream_audio().
+FISH_MODEL = os.getenv("FISH_MODEL", "s2.1-pro-free")
 BASE_URL = os.getenv("BASE_URL")
 API_KEY = os.getenv("API_KEY")
 
@@ -359,15 +368,58 @@ def _split_into_sentences(text: str):
     return [s for s in sentences if s and re.search(r"\w", s, flags=re.UNICODE)]
 
 
-# ---------- Text-to-Speech (Edge TTS) ----------
+# ---------- Emotion tagging for Fish Audio ([tag] syntax) ----------
 #
-# Switched from Fish Audio to Microsoft Edge TTS: Fish Audio requires a paid
-# subscription, Edge TTS is free (it uses the same voice service behind
-# Microsoft Edge's "Read Aloud" feature, no API key needed). The Fish Audio
-# implementation is kept below, commented out, so it can be restored later
-# by uncommenting it and renaming `_tts_stream_audio_edge` back to
-# `tts_stream_audio` (or just flipping which one is active — see the
-# assignment at the bottom of this section).
+# Fish Audio's S2.1-Pro models (the free "s2.1-pro-free" tier included —
+# per Fish's docs, emotion tags work on every pricing tier) read a leading
+# `[emotion]` marker on a sentence and shift delivery accordingly, e.g.
+# "[excited] Bilkul sir, wo option available hai!" This is a small
+# punctuation/keyword heuristic, not real sentiment analysis — it only fires
+# on cues that are unambiguous from the text alone (a question mark, an
+# exclamation mark, an explicit thank-you), so an uncertain sentence is left
+# untagged rather than mistagged. Applied only to the copy sent to TTS —
+# report.transcript / spoken_sentences keep the untagged text, so logs and
+# the eval transcript stay clean.
+
+_URDU_QUESTION_WORDS = re.compile(
+    r"\b(kya|kaisa|kaisi|kaise|kab|kahan|kyun|kyu|kitna|kitni|kitne|konsa|konsi|kaun)\b",
+    re.IGNORECASE,
+)
+_GRATITUDE_WORDS = re.compile(r"\b(shukriya|shukria|thank you|thanks)\b", re.IGNORECASE)
+
+
+def _emotion_tag_for_sentence(sentence: str) -> Optional[str]:
+    """Picks a single Fish Audio emotion tag (or None) for one sentence,
+    based on punctuation/keyword cues alone. See section note above for why
+    this stays deliberately conservative."""
+    stripped = sentence.strip()
+    if not stripped:
+        return None
+    if _GRATITUDE_WORDS.search(stripped):
+        return "grateful"
+    if stripped.endswith("?") or _URDU_QUESTION_WORDS.search(stripped):
+        return "curious"
+    if stripped.endswith("!"):
+        return "excited"
+    return None
+
+
+def _apply_emotion_tag(sentence: str) -> str:
+    """Prepends a `[emotion]` marker to `sentence` for Fish Audio (see
+    section note above) when a cue is unambiguous, otherwise returns the
+    sentence unmodified — no tag beats a wrong one."""
+    tag = _emotion_tag_for_sentence(sentence)
+    return f"[{tag}] {sentence}" if tag else sentence
+
+
+# ---------- Text-to-Speech (Edge TTS) — DISABLED, kept for restoration ----------
+#
+# Switched back to Fish Audio: the free tier works with the free model, so
+# Edge TTS is parked here (commented out) rather than removed. To restore
+# it later, uncomment this block and comment out the Fish Audio block below
+# (or just flip which `tts_stream_audio` definition is active — the second
+# definition in the file wins, so whichever block is NOT commented out is
+# the one actually used).
 #
 # Edge TTS's Python SDK (`edge-tts`) is async-only (`edge_tts.Communicate`).
 # The rest of this pipeline is sync, and the public interface of
@@ -376,61 +428,137 @@ def _split_into_sentences(text: str):
 # async work is run to completion internally with `asyncio.run()` inside a
 # sync wrapper — nothing outside this function needs to know it's async
 # under the hood.
+#
+# import asyncio
+# import edge_tts
+#
+# EDGE_DEFAULT_VOICE = os.getenv("EDGE_TTS_VOICE", "ur-PK-AsadNeural")
+# EDGE_TTS_DEBUG = os.getenv("EDGE_TTS_DEBUG", "").lower() in ("1", "true", "yes")
+# print(f"Using Edge TTS voice: {EDGE_DEFAULT_VOICE} (set EDGE_TTS_VOICE in .env to change)")
+# # ur-PK-AsadNeural / ur-PK-UzmaNeural are the two Urdu (Pakistan) neural
+# # voices Edge TTS ships. Neither one is UrduLish-native the way Fish Audio's
+# # cloned voice was, so this is a straight swap for functionality, not a
+# # perfect voice match — worth a listen before going to production.
+#
+# _tts_warmed_up = False
+#
+#
+# async def _edge_tts_collect(text: str, voice: str):
+#     """Streams synthesized audio chunks from Edge TTS and returns
+#     (audio_bytes, latency_to_first_chunk_ms). Latency is recorded at the
+#     FIRST `{"type": "audio"}` message that arrives over the websocket, not
+#     after the whole response is collected — see the module docstring's note
+#     on the ~2.5s question for how this was verified against edge-tts's
+#     source. With EDGE_TTS_DEBUG=1, every chunk's arrival time (relative to
+#     the start of this call) is printed, so a real multi-second gap before
+#     the first audio chunk is directly visible rather than assumed."""
+#     start = time.monotonic()
+#     communicate = edge_tts.Communicate(text, voice)
+#     chunks = []
+#     first_chunk_latency_ms = None
+#     chunk_index = 0
+#     async for chunk in communicate.stream():
+#         elapsed_ms = int((time.monotonic() - start) * 1000)
+#         if EDGE_TTS_DEBUG:
+#             size = len(chunk.get("data", b"")) if chunk["type"] == "audio" else 0
+#             print(f"  [edge-tts] +{elapsed_ms}ms chunk#{chunk_index} type={chunk['type']} bytes={size}")
+#         chunk_index += 1
+#         if chunk["type"] == "audio":
+#             if first_chunk_latency_ms is None:
+#                 first_chunk_latency_ms = elapsed_ms
+#             chunks.append(chunk["data"])
+#     audio_bytes = b"".join(chunks)
+#     if first_chunk_latency_ms is None:
+#         first_chunk_latency_ms = int((time.monotonic() - start) * 1000)
+#     return audio_bytes, first_chunk_latency_ms
+#
+#
+# def warmup_tts(voice: Optional[str] = None):
+#     """
+#     Pays Edge TTS's one-time connection setup cost (DNS + TLS handshake +
+#     websocket negotiation) up front with a throwaway synthesis call, before
+#     any real conversation turn is timed. edge-tts opens a fresh connection
+#     per `Communicate` instance rather than reusing a session, so that setup
+#     cost lands in full on whichever call happens to go first — in a live
+#     call, that's the customer's first reply, which is exactly the number
+#     you don't want inflated. Call this once when a call/session starts (or
+#     once at process startup for a long-running service) rather than
+#     treating its latency as representative of steady-state performance.
+#
+#     Safe to skip; just means the first real tts_stream_audio() call pays
+#     the connection cost instead.
+#     """
+#     global _tts_warmed_up
+#     try:
+#         tts_stream_audio("hi", voice_id=voice)
+#         _tts_warmed_up = True
+#     except Exception as e:
+#         traceback.print_exc()
+#         # Don't let a warmup failure block real calls — the real call will
+#         # surface the same error with proper context if it's still broken.
+#         print(f"TTS warmup call failed (non-fatal, continuing): {e}")
+#
+#
+# EDGE_TTS_MAX_RETRIES = int(os.getenv("EDGE_TTS_MAX_RETRIES", "3"))
+# EDGE_TTS_RETRY_BACKOFF_S = 0.5  # doubles each retry: 0.5s, 1s, 2s...
+#
+#
+# def tts_stream_audio(text: str, voice_id: Optional[str] = None):
+#     """
+#     Real Edge TTS call (sync wrapper around the async `edge-tts` SDK).
+#     Measures time-to-first-audio-chunk as the reported latency (what
+#     actually matters for "does the caller hear something soon"), while
+#     still returning the full synthesized audio for this sentence so it can
+#     be played/queued. See the module docstring for why a slow first call is
+#     connection setup cost, not this function buffering the whole response —
+#     and consider calling `warmup_tts()` once per call/session to avoid that
+#     cost landing on a real timed turn.
+#
+#     voice_id here is an Edge TTS voice name (e.g. "ur-PK-AsadNeural"), not a
+#     Fish Audio reference_id — same parameter slot, different meaning, kept
+#     so the function signature didn't need to change.
+#
+#     Retries on transient failures (e.g. edge-tts's `NoAudioReceived`, seen in
+#     practice on isolated short sentences against Microsoft's websocket
+#     endpoint with no server-side explanation) with a short exponential
+#     backoff, since edge-tts opens a fresh, unauthenticated websocket per call
+#     with no retry of its own — a single dropped connection would otherwise
+#     kill the rest of the caller's reply mid-sentence, which reads as a
+#     dropped call to the customer. Only raises once retries are exhausted.
+#
+#     Returns (audio_bytes, latency_to_first_chunk_ms).
+#     """
+#     voice = voice_id or EDGE_DEFAULT_VOICE
+#     last_error = None
+#     for attempt in range(1, EDGE_TTS_MAX_RETRIES + 1):
+#         try:
+#             audio_bytes, latency_ms = asyncio.run(_edge_tts_collect(text, voice))
+#             if not audio_bytes:
+#                 raise RuntimeError("Edge TTS returned no audio data.")
+#             return audio_bytes, latency_ms
+#         except Exception as e:
+#             last_error = e
+#             if attempt < EDGE_TTS_MAX_RETRIES:
+#                 backoff_s = EDGE_TTS_RETRY_BACKOFF_S * (2 ** (attempt - 1))
+#                 print(f"  [edge-tts] attempt {attempt}/{EDGE_TTS_MAX_RETRIES} failed "
+#                       f"({e}), retrying in {backoff_s}s...")
+#                 time.sleep(backoff_s)
+#
+#     traceback.print_exception(type(last_error), last_error, last_error.__traceback__)
+#     raise RuntimeError(f"Edge TTS failed after {EDGE_TTS_MAX_RETRIES} attempts: {last_error}") from last_error
 
-import asyncio
-import edge_tts
 
-EDGE_DEFAULT_VOICE = os.getenv("EDGE_TTS_VOICE", "ur-PK-AsadNeural")
-EDGE_TTS_DEBUG = os.getenv("EDGE_TTS_DEBUG", "").lower() in ("1", "true", "yes")
-print(f"Using Edge TTS voice: {EDGE_DEFAULT_VOICE} (set EDGE_TTS_VOICE in .env to change)")
-# ur-PK-AsadNeural / ur-PK-UzmaNeural are the two Urdu (Pakistan) neural
-# voices Edge TTS ships. Neither one is UrduLish-native the way Fish Audio's
-# cloned voice was, so this is a straight swap for functionality, not a
-# perfect voice match — worth a listen before going to production.
+# ---------- Text-to-Speech (Fish Audio) ----------
 
 _tts_warmed_up = False
 
 
-async def _edge_tts_collect(text: str, voice: str):
-    """Streams synthesized audio chunks from Edge TTS and returns
-    (audio_bytes, latency_to_first_chunk_ms). Latency is recorded at the
-    FIRST `{"type": "audio"}` message that arrives over the websocket, not
-    after the whole response is collected — see the module docstring's note
-    on the ~2.5s question for how this was verified against edge-tts's
-    source. With EDGE_TTS_DEBUG=1, every chunk's arrival time (relative to
-    the start of this call) is printed, so a real multi-second gap before
-    the first audio chunk is directly visible rather than assumed."""
-    start = time.monotonic()
-    communicate = edge_tts.Communicate(text, voice)
-    chunks = []
-    first_chunk_latency_ms = None
-    chunk_index = 0
-    async for chunk in communicate.stream():
-        elapsed_ms = int((time.monotonic() - start) * 1000)
-        if EDGE_TTS_DEBUG:
-            size = len(chunk.get("data", b"")) if chunk["type"] == "audio" else 0
-            print(f"  [edge-tts] +{elapsed_ms}ms chunk#{chunk_index} type={chunk['type']} bytes={size}")
-        chunk_index += 1
-        if chunk["type"] == "audio":
-            if first_chunk_latency_ms is None:
-                first_chunk_latency_ms = elapsed_ms
-            chunks.append(chunk["data"])
-    audio_bytes = b"".join(chunks)
-    if first_chunk_latency_ms is None:
-        first_chunk_latency_ms = int((time.monotonic() - start) * 1000)
-    return audio_bytes, first_chunk_latency_ms
-
-
 def warmup_tts(voice: Optional[str] = None):
     """
-    Pays Edge TTS's one-time connection setup cost (DNS + TLS handshake +
-    websocket negotiation) up front with a throwaway synthesis call, before
-    any real conversation turn is timed. edge-tts opens a fresh connection
-    per `Communicate` instance rather than reusing a session, so that setup
-    cost lands in full on whichever call happens to go first — in a live
-    call, that's the customer's first reply, which is exactly the number
-    you don't want inflated. Call this once when a call/session starts (or
-    once at process startup for a long-running service) rather than
+    Pays Fish Audio's one-time HTTPS connection setup cost (DNS + TLS
+    handshake) up front with a throwaway synthesis call, before any real
+    conversation turn is timed. Call this once when a call/session starts
+    (or once at process startup for a long-running service) rather than
     treating its latency as representative of steady-state performance.
 
     Safe to skip; just means the first real tts_stream_audio() call pays
@@ -447,110 +575,58 @@ def warmup_tts(voice: Optional[str] = None):
         print(f"TTS warmup call failed (non-fatal, continuing): {e}")
 
 
-EDGE_TTS_MAX_RETRIES = int(os.getenv("EDGE_TTS_MAX_RETRIES", "3"))
-EDGE_TTS_RETRY_BACKOFF_S = 0.5  # doubles each retry: 0.5s, 1s, 2s...
-
-
 def tts_stream_audio(text: str, voice_id: Optional[str] = None):
     """
-    Real Edge TTS call (sync wrapper around the async `edge-tts` SDK).
-    Measures time-to-first-audio-chunk as the reported latency (what
-    actually matters for "does the caller hear something soon"), while
-    still returning the full synthesized audio for this sentence so it can
-    be played/queued. See the module docstring for why a slow first call is
-    connection setup cost, not this function buffering the whole response —
-    and consider calling `warmup_tts()` once per call/session to avoid that
-    cost landing on a real timed turn.
+    Real Fish Audio TTS call. Streams the HTTP response body and measures
+    time-to-first-byte as the reported latency (what actually matters for
+    "does the caller hear something soon"), while still returning the full
+    synthesized audio for this sentence so it can be played/queued.
 
-    voice_id here is an Edge TTS voice name (e.g. "ur-PK-AsadNeural"), not a
-    Fish Audio reference_id — same parameter slot, different meaning, kept
-    so the function signature didn't need to change.
-
-    Retries on transient failures (e.g. edge-tts's `NoAudioReceived`, seen in
-    practice on isolated short sentences against Microsoft's websocket
-    endpoint with no server-side explanation) with a short exponential
-    backoff, since edge-tts opens a fresh, unauthenticated websocket per call
-    with no retry of its own — a single dropped connection would otherwise
-    kill the rest of the caller's reply mid-sentence, which reads as a
-    dropped call to the customer. Only raises once retries are exhausted.
-
-    Returns (audio_bytes, latency_to_first_chunk_ms).
+    Returns (audio_bytes, latency_to_first_byte_ms).
     """
-    voice = voice_id or EDGE_DEFAULT_VOICE
-    last_error = None
-    for attempt in range(1, EDGE_TTS_MAX_RETRIES + 1):
-        try:
-            audio_bytes, latency_ms = asyncio.run(_edge_tts_collect(text, voice))
-            if not audio_bytes:
-                raise RuntimeError("Edge TTS returned no audio data.")
-            return audio_bytes, latency_ms
-        except Exception as e:
-            last_error = e
-            if attempt < EDGE_TTS_MAX_RETRIES:
-                backoff_s = EDGE_TTS_RETRY_BACKOFF_S * (2 ** (attempt - 1))
-                print(f"  [edge-tts] attempt {attempt}/{EDGE_TTS_MAX_RETRIES} failed "
-                      f"({e}), retrying in {backoff_s}s...")
-                time.sleep(backoff_s)
+    if not FISH_API_KEY:
+        raise RuntimeError("FISH_AUDIO_API_KEY is not set. Set it in your .env before calling TTS.")
 
-    traceback.print_exception(type(last_error), last_error, last_error.__traceback__)
-    raise RuntimeError(f"Edge TTS failed after {EDGE_TTS_MAX_RETRIES} attempts: {last_error}") from last_error
+    headers = {
+        "Authorization": f"Bearer {FISH_API_KEY}",
+        "Content-Type": "application/json",
+        "model": FISH_MODEL,  # s2.1-pro-free: the free-tier model, no usage cap
+    }
+    payload = {
+        "text": text,
+        "reference_id": voice_id or FISH_VOICE_ID,
+        "format": "mp3",
+    }
 
+    start = time.monotonic()
+    try:
+        with requests.post(
+            "https://api.fish.audio/v1/tts",
+            headers=headers,
+            json=payload,
+            stream=True,
+            timeout=15,
+        ) as response:
+            response.raise_for_status()
+            chunks = []
+            first_byte_latency_ms = None
+            for chunk in response.iter_content(chunk_size=4096):
+                if not chunk:
+                    continue
+                if first_byte_latency_ms is None:
+                    first_byte_latency_ms = int((time.monotonic() - start) * 1000)
+                chunks.append(chunk)
+            audio_bytes = b"".join(chunks)
+    except requests.RequestException as e:
+        raise RuntimeError(f"Fish Audio TTS failed: {e}") from e
 
+    if not audio_bytes:
+        raise RuntimeError("Fish Audio TTS returned no audio data.")
 
+    if first_byte_latency_ms is None:
+        first_byte_latency_ms = int((time.monotonic() - start) * 1000)
 
-# ---------- Text-to-Speech (Fish Audio) — DISABLED, kept for restoration ----------
-#
-# def tts_stream_audio(text: str, voice_id: Optional[str] = None):
-#     """
-#     Real Fish Audio TTS call. Streams the HTTP response body and measures
-#     time-to-first-byte as the reported latency (what actually matters for
-#     "does the caller hear something soon"), while still returning the full
-#     synthesized audio for this sentence so it can be played/queued.
-#
-#     Returns (audio_bytes, latency_to_first_byte_ms).
-#     """
-#     if not FISH_API_KEY:
-#         raise RuntimeError("FISH_AUDIO_API_KEY is not set. Set it in your .env before calling TTS.")
-#
-#     headers = {
-#         "Authorization": f"Bearer {FISH_API_KEY}",
-#         "Content-Type": "application/json",
-#     }
-#     payload = {
-#         "text": text,
-#         "reference_id": voice_id or FISH_VOICE_ID,
-#         "format": "mp3",
-#     }
-#
-#     start = time.monotonic()
-#     try:
-#         with requests.post(
-#             "https://api.fish.audio/v1/tts",
-#             headers=headers,
-#             json=payload,
-#             stream=True,
-#             timeout=15,
-#         ) as response:
-#             response.raise_for_status()
-#             chunks = []
-#             first_byte_latency_ms = None
-#             for chunk in response.iter_content(chunk_size=4096):
-#                 if not chunk:
-#                     continue
-#                 if first_byte_latency_ms is None:
-#                     first_byte_latency_ms = int((time.monotonic() - start) * 1000)
-#                 chunks.append(chunk)
-#             audio_bytes = b"".join(chunks)
-#     except requests.RequestException as e:
-#         raise RuntimeError(f"Fish Audio TTS failed: {e}") from e
-#
-#     if not audio_bytes:
-#         raise RuntimeError("Fish Audio TTS returned no audio data.")
-#
-#     if first_byte_latency_ms is None:
-#         first_byte_latency_ms = int((time.monotonic() - start) * 1000)
-#
-#     return audio_bytes, first_byte_latency_ms
+    return audio_bytes, first_byte_latency_ms
 
 
 # ---------- Telephony (Twilio) — integration point, not wired up ----------
@@ -646,8 +722,9 @@ def _generate_conversation_reply(customer_text: str) -> str:
 
 
 def _save_audio_files(audio_chunks, turn_id: str, output_dir: str):
-    """Saves each sentence's synthesized audio as its own MP3 file (Edge TTS
-    already returns MP3-encoded bytes). Naive byte-concatenation of
+    """Saves each sentence's synthesized audio as its own MP3 file (Fish
+    Audio already returns MP3-encoded bytes, per `format: "mp3"` in the
+    request). Naive byte-concatenation of
     independently synthesized MP3 clips isn't a well-formed single MP3
     stream (each carries its own frame headers), so sentences are kept as
     separate files rather than joined into one — reliable playback matters
@@ -739,22 +816,19 @@ def run_voice_turn(customer_speech_text, agent_reply_text: Optional[str] = None,
     first_sentence_done = False
 
     for sentence in candidate_sentences:
+        tagged_sentence = _apply_emotion_tag(sentence)
         print("=" * 80)
         print("TTS INPUT:")
-        print(repr(sentence))
+        print(repr(tagged_sentence))
         print("=" * 80)
         try:
-            audio_bytes, tts_ms = tts_stream_audio(sentence)
+            audio_bytes, tts_ms = tts_stream_audio(tagged_sentence)
         except RuntimeError as e:
-            # Edge TTS is an unofficial, undocumented API — Microsoft's
-            # backend occasionally returns zero audio for a request that
-            # completes cleanly (no connection error, no explanation), even
-            # for valid short text (confirmed by reading edge_tts's own
-            # source: this is NOT the retry-worthy transient case
-            # tts_stream_audio() already retries — it's exhausted those
-            # retries and still got nothing). One unspeakable sentence
-            # shouldn't kill the rest of the reply / the whole call, so it's
-            # logged and skipped rather than propagated.
+            # A Fish Audio call can fail for a single sentence (HTTP error,
+            # empty response body) without that being a sign the whole call
+            # is broken. One unspeakable sentence shouldn't kill the rest of
+            # the reply / the whole call, so it's logged and skipped rather
+            # than propagated.
             print(f"  [voice_pipeline] TTS could not synthesize this sentence after "
                   f"retries, skipping it and continuing: {e}")
             report.skipped_sentences.append((sentence, str(e)))
@@ -790,7 +864,7 @@ def run_offline_test(sample_audio_dir: str = SAMPLE_AUDIO_DIR,
     """
     Runs every audio file in sample_audio_dir through the complete pipeline:
     load file -> Deepgram STT -> conversation_agent.py reply generation ->
-    Edge TTS -> save MP3s to output_dir (defaults to OFFLINE_TEST_AUDIO_DIR,
+    Fish Audio TTS -> save MP3s to output_dir (defaults to OFFLINE_TEST_AUDIO_DIR,
     a subfolder of GENERATED_AUDIO_DIR — kept separate from the live-call
     path's output so this standalone test never overwrites turn_NNN files a
     real/eval-script call already saved there). No live phone call, no mocked
@@ -812,7 +886,7 @@ def run_offline_test(sample_audio_dir: str = SAMPLE_AUDIO_DIR,
         print(f"No audio files found in {sample_audio_dir}")
         return
 
-    print(f"Warming up Edge TTS connection...")
+    print(f"Warming up Fish Audio TTS connection...")
     warmup_tts()
 
     results = []
@@ -849,8 +923,9 @@ def run_offline_test(sample_audio_dir: str = SAMPLE_AUDIO_DIR,
 
 
 if __name__ == "__main__":
-    # This demo calls real Deepgram/Edge TTS APIs. Deepgram needs a valid key
-    # in your .env (DEEPGRAM_API_KEY); Edge TTS needs no API key at all.
+    # This demo calls real Deepgram/Fish Audio APIs. Deepgram needs a valid
+    # key in your .env (DEEPGRAM_API_KEY); Fish Audio needs FISH_AUDIO_API_KEY
+    # (free tier, s2.1-pro-free model — see FISH_MODEL above).
     # Fails loudly with a clear message if a call errors, rather than
     # silently falling back to mock numbers — that mismatch is exactly what
     # the Day 3 mock version was replaced to avoid.
@@ -871,9 +946,9 @@ if __name__ == "__main__":
                                                 output_dir=OFFLINE_TEST_AUDIO_DIR)
         except RuntimeError as e:
             print(f"Pipeline call failed: {e}")
-            print("Check that DEEPGRAM_API_KEY / BASE_URL / API_KEY are set in your .env "
-                  "(Edge TTS needs no key). If edge-tts itself errors, check your network "
-                  "connection — it calls Microsoft's TTS service over the internet.")
+            print("Check that DEEPGRAM_API_KEY / BASE_URL / API_KEY / FISH_AUDIO_API_KEY are "
+                  "set in your .env. If Fish Audio itself errors, check your network "
+                  "connection and that FISH_VOICE_ID is a valid reference_id.")
             raise SystemExit(1)
 
         print("Spoken sentences (in order streamed to TTS):")
@@ -892,6 +967,6 @@ if __name__ == "__main__":
             run_offline_test()
         except RuntimeError as e:
             print(f"Offline test failed: {e}")
-            print("Check that DEEPGRAM_API_KEY / BASE_URL / API_KEY are set in your .env "
-                  "(Edge TTS needs no key).")
+            print("Check that DEEPGRAM_API_KEY / BASE_URL / API_KEY / FISH_AUDIO_API_KEY are "
+                  "set in your .env.")
             raise SystemExit(1)

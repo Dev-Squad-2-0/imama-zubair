@@ -14,3 +14,5 @@ vscode/
 .vscode/
 
 tempCodeRunnerFile.*
+
+credentials.json

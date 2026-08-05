@@ -203,6 +203,13 @@ Confirmed working on the real pipeline:
 Slots feed straight into `recommendation_engine.recommend_properties()`
 through `as_recommendation_kwargs()`, no extra glue code needed.
 
+`client_name` and `client_phone` slots were added ahead of Day 4, since
+Google Calendar events need both and this was the natural place to capture
+them. Only fires on explicit self-introduction phrasing ("mera naam X hai",
+"my name is X") or a Pakistani mobile number pattern, not on any arbitrary
+text, so it stays reliable rather than guessing. Appointment date/time slots
+don't exist yet, that's separate Day 4 work.
+
 ---
 
 ## Task 4: Objection Handling

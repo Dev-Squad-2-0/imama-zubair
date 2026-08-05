@@ -14,6 +14,11 @@ Example flow this supports:
                                                    (uses budget from turn 1)
     Turn 3  "Us se sasti koi option?"          -> reads slots.last_shown_price
                                                    and lowers the budget ceiling
+
+client_name / client_phone (added for Day 4, Google Calendar needs both):
+only fire on explicit self-introduction phrasing ("mera naam X hai", "my
+name is X") or a Pakistani mobile number pattern, not on any arbitrary text.
+Appointment date/time slots don't exist yet, that parsing is separate Day 4 work.
 """
 
 import re
@@ -40,9 +45,37 @@ def parse_pkr_amount(text: str) -> Optional[int]:
     return None
 
 
+# Pakistani mobile numbers: 03XX-XXXXXXX, 03XXXXXXXXX, or +92 3XX XXXXXXX
+_PHONE_PATTERN = re.compile(r"(?:\+92[\s-]?|0)3\d{2}[\s-]?\d{7}\b")
+
+# Only fires on explicit self-introduction phrasing, not on any arbitrary
+# name-shaped text, since guessing a name from loose text is unreliable.
+_NAME_PATTERNS = [
+    re.compile(r"mera naam ([A-Za-z]+(?:\s[A-Za-z]+)?)\s+(?:hai|hain)\b", re.IGNORECASE),
+    re.compile(r"main ([A-Za-z]+(?:\s[A-Za-z]+)?)\s+bol (?:raha|rahi) hoon", re.IGNORECASE),
+    re.compile(r"my name is ([A-Za-z]+(?:\s[A-Za-z]+)?)", re.IGNORECASE),
+    re.compile(r"this is ([A-Za-z]+(?:\s[A-Za-z]+)?) speaking", re.IGNORECASE),
+]
+
+
+def parse_phone_number(text: str) -> Optional[str]:
+    m = _PHONE_PATTERN.search(text)
+    return m.group(0) if m else None
+
+
+def parse_client_name(text: str) -> Optional[str]:
+    for pattern in _NAME_PATTERNS:
+        m = pattern.search(text)
+        if m:
+            return m.group(1).strip().title()
+    return None
+
+
 @dataclass
 class ConversationSlots:
     """Everything the agent currently 'knows' about this caller's intent."""
+    client_name: Optional[str] = None      # Day 4: needed for calendar events
+    client_phone: Optional[str] = None     # Day 4: needed for calendar events
     budget: Optional[int] = None
     city: Optional[str] = None
     area: Optional[str] = None
@@ -54,6 +87,8 @@ class ConversationSlots:
     last_shown_max_price: Optional[int] = None
     pending_appointment: Optional[Dict[str, Any]] = None
     decline_count: int = 0                 # tracks "no thanks" for the no-pushing-past-2x rule
+    # No appointment date/time slots yet - parsing "kal 5 baje" style Urdu
+    # date/time expressions is separate work, left for Day 4.
 
 
 @dataclass
@@ -72,6 +107,17 @@ class ConversationMemory:
     # ---- slot updates, called by conversation_agent.py after each customer turn ----
 
     def update_from_customer_text(self, text: str):
+        name = parse_client_name(text)
+        if name:
+            self.slots.client_name = name
+
+        phone = parse_phone_number(text)
+        if phone:
+            self.slots.client_phone = phone
+            # strip the phone digits so parse_pkr_amount()'s raw-number
+            # fallback (\d{6,}) can't misread them as a budget figure
+            text = _PHONE_PATTERN.sub("", text)
+
         lowered = text.lower()
 
         amount = parse_pkr_amount(text)
@@ -137,6 +183,10 @@ class ConversationMemory:
 
 if __name__ == "__main__":
     mem = ConversationMemory()
+
+    mem.add_turn("customer", "Mera naam Ahmed hai, mera number 0300-1234567 hai.")
+    mem.update_from_customer_text("Mera naam Ahmed hai, mera number 0300-1234567 hai.")
+    print("After intro turn slots:", mem.slots)
 
     mem.add_turn("customer", "Budget 3 crore hai.")
     mem.update_from_customer_text("Budget 3 crore hai.")

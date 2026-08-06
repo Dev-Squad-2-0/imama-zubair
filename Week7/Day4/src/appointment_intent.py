@@ -1,0 +1,290 @@
+"""
+Day 4 - appointment intent detection + date/time parsing.
+
+Small, deliberately-scoped companion to objection_handler.py: same
+keyword-classification pattern, applied to booking intent instead of
+objections. Lives separately from appointment_management.py because that
+module is pure action-execution (given a datetime, do the booking) — intent
+detection and parsing are a different concern (given raw customer text,
+figure out WHAT the customer wants and WHEN).
+
+Honesty note on the parser: this is a best-effort regex parser for common
+UrduLish date/time phrasing ("kal 5 baje", "parso shaam 6 baje", "Monday
+10 AM"), not a full natural-language date parser. It returns None on
+anything it can't confidently parse, and the caller (conversation_agent.py)
+is expected to ask the customer to clarify rather than guess a time —
+matching the project's "flag missing data rather than approximating" rule.
+Anything genuinely ambiguous (e.g. a bare "5 baje" with no AM/PM cue) is
+resolved with a documented default, not silently guessed differently each
+time.
+"""
+
+import re
+from datetime import datetime, timedelta
+from typing import Optional
+
+
+# ---------- Intent detection ----------
+
+_CANCEL_KEYWORDS = [
+    "cancel kar", "cancel ker", "appointment cancel", "visit cancel",
+    "cancel karna", "cancel krna", "nahi aana ab", "appointment khatam",
+]
+_RESCHEDULE_KEYWORDS = [
+    "reschedule", "time change", "waqt tabdeel", "aage kar do", "date change",
+    "time badal", "waqt badal", "kisi aur din", "kisi aur waqt",
+]
+_BOOK_KEYWORDS = [
+    "book kar", "book ker", "appointment book", "visit book", "book karna",
+    "schedule kar", "visit fix", "milna chahta", "milna chahti", "site visit",
+    "appointment lena", "appointment chahiye",
+]
+
+
+def detect_appointment_intent(customer_text: str) -> Optional[str]:
+    """Returns "cancel", "reschedule", "book", or None. Checked in that
+    order since "reschedule" phrasing can loosely overlap with "book"
+    phrasing ("kisi aur din book karna hai") — cancel and reschedule are
+    checked first so they aren't misread as a fresh booking."""
+    lowered = customer_text.lower()
+
+    if any(kw in lowered for kw in _CANCEL_KEYWORDS):
+        return "cancel"
+    if any(kw in lowered for kw in _RESCHEDULE_KEYWORDS):
+        return "reschedule"
+    if any(kw in lowered for kw in _BOOK_KEYWORDS):
+        return "book"
+    return None
+
+
+# ---------- Date/time parsing ----------
+
+_WEEKDAYS = {
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+    "friday": 4, "saturday": 5, "sunday": 6,
+}
+
+_MONTHS = {
+    "january": 1, "jan": 1, "february": 2, "feb": 2, "march": 3, "mar": 3,
+    "april": 4, "apr": 4, "may": 5, "june": 6, "jun": 6, "july": 7, "jul": 7,
+    "august": 8, "aug": 8, "september": 9, "sep": 9, "sept": 9,
+    "october": 10, "oct": 10, "november": 11, "nov": 11, "december": 12, "dec": 12,
+}
+# sorted longest-first so "sept" is tried before "sep" matches as a prefix
+_MONTH_NAMES_BY_LENGTH = sorted(_MONTHS, key=len, reverse=True)
+
+_DEFAULT_HOUR_IF_NO_TIME_GIVEN = 12  # noon, used only when a day is parsed but no clock time at all
+
+
+def _parse_relative_day(lowered: str, now: datetime) -> Optional[datetime]:
+    """Returns a date (time still 00:00) for 'aaj'/'kal'/'parso'/'today'/
+    'tomorrow'/a weekday name. None if no day reference found."""
+    if "parso" in lowered:
+        return (now + timedelta(days=2)).replace(hour=0, minute=0, second=0, microsecond=0)
+    if "kal" in lowered or "tomorrow" in lowered:
+        return (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    if "aaj" in lowered or "today" in lowered:
+        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    for name, weekday_num in _WEEKDAYS.items():
+        if name in lowered:
+            days_ahead = (weekday_num - now.weekday()) % 7
+            days_ahead = days_ahead or 7  # "Monday" said on a Monday means next Monday, not today
+            return (now + timedelta(days=days_ahead)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    return None
+
+
+def _find_month_day_match(lowered: str):
+    """Locates an explicit month-day reference and returns
+    (month_num, day_num, year_or_None, match_start, match_end), or None.
+    Split out from _parse_month_day so parse_appointment_datetime can also
+    strip the matched span before clock-time parsing runs — otherwise the
+    day-of-month digit itself ('10' in '10 august') gets misread as a bare
+    hour by _parse_clock_time, silently overriding the correct default
+    (noon) with a wrong guessed time."""
+    month_num = None
+    month_name = None
+    for name in _MONTH_NAMES_BY_LENGTH:
+        name_match = re.search(rf"\b{name}\b", lowered)
+        if name_match:
+            month_num = _MONTHS[name]
+            month_name = name
+            break
+    if month_num is None:
+        return None
+
+    # day number can come before or after the month name: "10 august" or
+    # "august 10", optionally with an ordinal suffix ("10th august")
+    pattern = rf"(?:(\d{{1,2}})(?:st|nd|rd|th)?\s*{month_name}|{month_name}\s*(\d{{1,2}})(?:st|nd|rd|th)?)"
+    m = re.search(pattern, lowered)
+    if not m:
+        return None
+    day_num = int(m.group(1) or m.group(2))
+    if not (1 <= day_num <= 31):
+        return None
+
+    start, end = m.span()
+    year = None
+    year_m = re.search(r"\b(\d{4})\b", lowered[end:end + 8]) or re.search(r"\b(\d{4})\b", lowered)
+    if year_m:
+        year = int(year_m.group(1))
+        # extend the stripped span to also cover the year if it directly
+        # follows the date (e.g. "10 august 2026")
+        if lowered[end:end + 8].strip().startswith(year_m.group(1)):
+            end = end + lowered[end:end + 8].index(year_m.group(1)) + 4
+
+    return month_num, day_num, year, start, end
+
+
+def _parse_month_day(lowered: str, now: datetime) -> Optional[datetime]:
+    """Returns a date (time still 00:00) for explicit month-day phrasing:
+    'august 10', '10 august', '10th august', 'aug 10', with or without a
+    year ('10 august 2026'). Tried after _parse_relative_day finds nothing,
+    since explicit dates like this are unambiguous and don't need a
+    relative-day keyword at all.
+
+    Year defaults to the current year, rolled to next year if that date has
+    already passed this year — a customer saying "10 August" in December
+    means next August, not one that's already gone."""
+    found = _find_month_day_match(lowered)
+    if found is None:
+        return None
+    month_num, day_num, year, _, _ = found
+    year = year or now.year
+
+    try:
+        candidate = now.replace(year=year, month=month_num, day=day_num,
+                                 hour=0, minute=0, second=0, microsecond=0)
+    except ValueError:
+        return None  # invalid day for that month (e.g. 31 Feb)
+
+    if found[2] is None and candidate.date() < now.date():
+        # no explicit year given and the date's already passed this year
+        candidate = candidate.replace(year=year + 1)
+
+    return candidate
+
+
+def _parse_clock_time(lowered: str) -> Optional[tuple]:
+    """Returns (hour_24, minute) or None. Handles '5 baje', '5:30 baje',
+    '10 AM', '6 PM'.
+
+    Root cause of a previous bug ("...ki August 10 ki 12 pm baje ki
+    appointment...", with a budget "3 crore" and "Phase 6" earlier in the
+    sentence, wrongly parsed as 15:00 instead of 12:00): the old regex made
+    the period marker (baje/am/pm) fully OPTIONAL on the same match, so
+    `re.search` grabbed the leftmost bare digit anywhere in the string —
+    here, the "3" from "3 crore" — as "the hour", regardless of whether any
+    time marker was actually near it. Then AM/PM resolution searched the
+    *entire string* for "pm"/"shaam"/etc., so the "pm" attached to the
+    real, later time ("12 pm") leaked onto that unrelated leading "3"
+    instead: hour=3 + is_pm_word=True (found elsewhere) = 15:00.
+
+    Fixed by requiring the match to carry its own explicit marker (baje /
+    am / pm / a.m. / p.m.) or an explicit ':MM' minute component — a bare,
+    unmarked digit is never treated as a time on its own. AM/PM is then
+    resolved only from words in the immediate neighbourhood of THAT
+    specific match, not the whole sentence, so a marker on some other
+    number can no longer leak onto it. The bare-hour default (1-7 -> PM,
+    8-11 -> AM) still applies, but only to resolve ambiguity within a
+    match that's already confirmed to be a time (has 'baje' with no
+    explicit period word) — it no longer decides whether something is a
+    time reference at all."""
+    m = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(baje|a\.m\.|p\.m\.|am|pm)\b", lowered)
+    if m is None:
+        # no marker anywhere, but an explicit ':MM' is unambiguous enough
+        # on its own to count as a time reference (e.g. "5:30")
+        m = re.search(r"\b(\d{1,2}):(\d{2})\b", lowered)
+    if m is None:
+        return None
+
+    hour = int(m.group(1))
+    minute = int(m.group(2)) if m.group(2) else 0
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None
+
+    # AM/PM resolved only from local context around this specific match,
+    # not the whole sentence, so an unrelated marker can't leak in
+    start, end = m.span()
+    context = lowered[max(0, start - 20):end + 20]
+    is_pm_word = bool(re.search(r"\bpm\b|p\.m\.|shaam|raat|evening|night", context))
+    is_am_word = bool(re.search(r"\bam\b|a\.m\.|subah|morning", context))
+
+    if hour <= 12:
+        if is_pm_word and hour != 12:
+            hour += 12
+        elif is_am_word and hour == 12:
+            hour = 0
+        elif not is_pm_word and not is_am_word:
+            # no explicit period given — default assumption documented above
+            if 1 <= hour <= 7:
+                hour += 12
+    return hour, minute
+
+
+def parse_appointment_datetime(customer_text: str, now: Optional[datetime] = None) -> Optional[datetime]:
+    """Best-effort parse of a spoken date/time reference into a datetime.
+    Returns None if neither a day reference nor a clock time is found at
+    all — conversation_agent.py should treat that as "still need the
+    date/time" and ask, never book on a guess.
+
+    Day resolution order: relative day word (aaj/kal/parso/weekday) first,
+    then an explicit month-day ("10 August" / "August 10"). If neither is
+    present but a clock time is (e.g. a bare "10 pm" as a follow-up to an
+    agent asking "what time works?"), the day defaults to today, rolled to
+    tomorrow if that time has already passed — documented assumption, not
+    a silent guess, same spirit as _parse_clock_time's AM/PM default."""
+    now = now or datetime.now()
+    lowered = customer_text.lower()
+    lowered_for_clock = lowered
+
+    day = _parse_relative_day(lowered, now)
+    if day is None:
+        day = _parse_month_day(lowered, now)
+        if day is not None:
+            # strip the matched date span so its digits (e.g. the "10" in
+            # "10 august") can't also be misread as a bare clock hour
+            match = _find_month_day_match(lowered)
+            if match is not None:
+                _, _, _, start, end = match
+                lowered_for_clock = lowered[:start] + " " + lowered[end:]
+
+    clock = _parse_clock_time(lowered_for_clock)
+
+    if day is None:
+        if clock is None:
+            return None
+        hour, minute = clock
+        candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if candidate < now:
+            candidate += timedelta(days=1)
+        return candidate
+
+    if clock is None:
+        return day.replace(hour=_DEFAULT_HOUR_IF_NO_TIME_GIVEN)
+
+    hour, minute = clock
+    return day.replace(hour=hour, minute=minute)
+
+
+if __name__ == "__main__":
+    samples = [
+        "Kal 5 baje appointment book karna hai.",
+        "Parso shaam 6 baje visit fix kar dein.",
+        "Mera appointment cancel kar dein please.",
+        "Waqt change karna hai, kisi aur din milte hain.",
+        "Monday 10 AM theek hai kya?",
+        "Aaj hi mil sakte hain kya?",
+        "10 pm theek hai.",
+        "August 10 ko milte hain.",
+        "10 August ko theek hai.",
+        "10th August shaam 6 baje.",
+        "25 December theek hai kya?",
+        "Assalam o Alaikum. Mera naam Ali Amir hai. Mera budget 3 crore hai. "
+        "Mujhe DHA Phase 6 ki August 10 ki 12 pm baje ki appointment book karni hai.",
+    ]
+    for s in samples:
+        intent = detect_appointment_intent(s)
+        dt = parse_appointment_datetime(s)
+        print(f"{s!r}\n  intent={intent}, datetime={dt}\n")

@@ -1,0 +1,22 @@
+hospital_id,location_id,hospital_name,distance_km,emergency_available
+1,1,Rodriguez-Graham Hospital,3.0,False
+2,2,Smith-Bowen Hospital,5.8,True
+3,2,"Baker, Mason and White Hospital",3.3,True
+4,3,Harrell LLC Hospital,5.1,False
+5,3,"Romero, Gonzalez and Brooks Hospital",3.8,True
+6,4,Ryan PLC Hospital,4.7,False
+7,4,George Group Hospital,5.7,False
+8,5,Rodriguez LLC Hospital,3.8,True
+9,6,Allen-Allen Hospital,1.1,True
+10,7,"Arroyo, Miller and Tucker Hospital",1.8,True
+11,7,Spence PLC Hospital,5.3,True
+12,8,Anderson Group Hospital,4.5,True
+13,9,"Martin, Rose and Obrien Hospital",1.2,True
+14,10,Hickman Ltd Hospital,2.0,False
+15,11,"Harris, Collins and Carney Hospital",5.8,False
+16,11,"Brooks, Lam and Hayes Hospital",4.7,False
+17,12,Walker LLC Hospital,4.4,True
+18,13,Chapman and Sons Hospital,2.9,False
+19,13,"Robinson, Jones and Welch Hospital",3.0,True
+20,14,Jones Inc Hospital,0.9,True
+21,15,Jones-Young Hospital,3.7,True

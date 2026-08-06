@@ -1,0 +1,9 @@
+Property ID: 53
+Type: warehouse
+Purpose: commercial
+Location: Johar Town, Lahore
+Size: 3 marla
+Bedrooms: 0, Bathrooms: 1
+Status: available
+Amenities: Solar Panels, Underground Electricity, Mosque, Covered Parking, Wide Roads
+This property is located in Johar Town, an area known for good access to schools and hospitals. The surrounding neighborhood has a mix of residential and commercial activity, making it convenient for daily errands. Public transport and main roads are within easy reach.

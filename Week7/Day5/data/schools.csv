@@ -1,0 +1,36 @@
+school_id,location_id,school_name,distance_km,level
+1,1,"Rodriguez, Figueroa and Sanchez School System",1.0,Primary
+2,1,Doyle Ltd School System,0.5,Primary
+3,1,"Mcclain, Miller and Henderson School System",3.2,Primary
+4,2,Davis and Sons School System,3.5,Secondary
+5,3,"Guzman, Hoffman and Baldwin School System",2.0,Secondary
+6,3,"Gardner, Robinson and Lawrence School System",0.9,Secondary
+7,4,Blake and Sons School System,2.8,O/A Levels
+8,5,"Henderson, Ramirez and Lewis School System",2.7,O/A Levels
+9,5,Garcia-James School System,2.6,O/A Levels
+10,5,Abbott-Munoz School System,3.0,Primary
+11,6,Blair PLC School System,1.7,O/A Levels
+12,6,Dudley Group School System,2.8,Primary
+13,7,Arnold Ltd School System,1.5,Primary
+14,7,"Mcclure, Ward and Lee School System",1.1,Primary
+15,7,Williams and Sons School System,3.3,Secondary
+16,8,Galloway-Wyatt School System,0.5,O/A Levels
+17,8,James Group School System,3.5,Secondary
+18,9,"Flowers, Martin and Kelly School System",2.7,Secondary
+19,10,"Adams, Zuniga and Wong School System",2.0,Secondary
+20,10,"Reid, Ferguson and Sanchez School System",0.8,O/A Levels
+21,10,Gray-Mayo School System,2.4,Secondary
+22,11,"Watts, Robinson and Nguyen School System",2.5,O/A Levels
+23,11,Perez Inc School System,1.8,Primary
+24,11,Morales-Jones School System,4.0,Primary
+25,12,"Walter, Edwards and Rios School System",2.1,Primary
+26,12,Wilkerson-Day School System,3.5,Primary
+27,12,Baker and Sons School System,2.6,O/A Levels
+28,13,"Hoffman, Baker and Richards School System",2.5,Secondary
+29,13,"Ross, Robinson and Bright School System",1.7,Secondary
+30,14,"Snyder, Campos and Callahan School System",1.2,O/A Levels
+31,14,Burton Ltd School System,3.5,Primary
+32,14,Carlson-Cruz School System,2.8,Primary
+33,15,"Ferrell, Rice and Maddox School System",3.6,Secondary
+34,15,Frazier Inc School System,3.1,Secondary
+35,15,"Dyer, Potter and Mack School System",0.7,Secondary

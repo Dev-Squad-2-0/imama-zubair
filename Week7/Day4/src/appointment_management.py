@@ -36,6 +36,7 @@ from typing import Optional
 
 import calendar_integration as cal
 import email_automation as mailer
+import crm_logger
 
 
 @dataclass
@@ -82,9 +83,16 @@ def _update_pending_appointment_slot(memory, details: cal.AppointmentDetails,
 def book_appointment(memory, details: cal.AppointmentDetails) -> AppointmentActionResult:
     """Creates the calendar event, then emails the employee. Requirements
     text for the email is derived from memory automatically so callers
-    don't have to build it separately."""
+    don't have to build it separately.
+
+    Also logs to the CRM (crm_logger) exactly like api.py's /calendar/create
+    + /email/notify endpoints do - needed so calls handled by
+    conversation_agent.py (which calls this function directly, not through
+    api.py's HTTP layer) still show up in the CRM trail, same as n8n-driven
+    calls do."""
     cal_result = cal.create_appointment_event(details)
     if not cal_result.success:
+        crm_logger.log_event(memory.session_id, "calendar_failed", {"error": cal_result.error}, status="failed")
         return AppointmentActionResult(
             success=False, action="booked", calendar_error=cal_result.error
         )
@@ -93,6 +101,19 @@ def book_appointment(memory, details: cal.AppointmentDetails) -> AppointmentActi
     email_result = mailer.send_appointment_notification(details, requirements_text)
 
     _update_pending_appointment_slot(memory, details, cal_result.event_id, "booked")
+
+    crm_logger.log_event(memory.session_id, "appointment_booked",
+                          {"event_id": cal_result.event_id, "html_link": cal_result.html_link})
+    crm_logger.log_appointment_history(
+        memory.session_id, "booked",
+        client_phone=details.client_phone, client_name=details.client_name,
+        property_id=details.property_id, property_title=details.property_title,
+        start_datetime=details.start_datetime.isoformat(), event_id=cal_result.event_id,
+    )
+    if email_result.success:
+        crm_logger.log_event(memory.session_id, "email_sent", {"kind": "book", "message_id": email_result.message_id})
+    else:
+        crm_logger.log_event(memory.session_id, "email_failed", {"kind": "book", "error": email_result.error}, status="failed")
 
     return AppointmentActionResult(
         success=True,
@@ -118,6 +139,7 @@ def reschedule_appointment(memory, event_id: str, new_start_datetime: datetime,
 
     cal_result = cal.reschedule_appointment_event(event_id, new_start_datetime, new_end_datetime)
     if not cal_result.success:
+        crm_logger.log_event(memory.session_id, "calendar_failed", {"error": cal_result.error}, status="failed")
         return AppointmentActionResult(
             success=False, action="rescheduled", calendar_error=cal_result.error
         )
@@ -141,6 +163,19 @@ def reschedule_appointment(memory, event_id: str, new_start_datetime: datetime,
 
     _update_pending_appointment_slot(memory, updated_details, cal_result.event_id, "rescheduled")
 
+    crm_logger.log_event(memory.session_id, "appointment_rescheduled",
+                          {"event_id": event_id, "old_start": str(old_start), "new_start": str(new_start_datetime)})
+    crm_logger.log_appointment_history(
+        memory.session_id, "rescheduled",
+        client_phone=details.client_phone, client_name=details.client_name,
+        property_id=details.property_id, property_title=details.property_title,
+        start_datetime=new_start_datetime.isoformat(), event_id=cal_result.event_id,
+    )
+    if email_result.success:
+        crm_logger.log_event(memory.session_id, "email_sent", {"kind": "reschedule", "message_id": email_result.message_id})
+    else:
+        crm_logger.log_event(memory.session_id, "email_failed", {"kind": "reschedule", "error": email_result.error}, status="failed")
+
     return AppointmentActionResult(
         success=True,
         action="rescheduled",
@@ -160,6 +195,7 @@ def cancel_appointment(memory, event_id: str, details: cal.AppointmentDetails,
     from name alone, matching system_prompt.md's cancellation policy."""
     cal_result = cal.cancel_appointment_event(event_id, reason)
     if not cal_result.success:
+        crm_logger.log_event(memory.session_id, "calendar_failed", {"error": cal_result.error}, status="failed")
         return AppointmentActionResult(
             success=False, action="cancelled", calendar_error=cal_result.error
         )
@@ -167,6 +203,19 @@ def cancel_appointment(memory, event_id: str, details: cal.AppointmentDetails,
     email_result = mailer.send_cancellation_notification(details, reason)
 
     _update_pending_appointment_slot(memory, details, event_id, "cancelled")
+
+    crm_logger.log_event(memory.session_id, "appointment_cancelled", {"event_id": event_id, "reason": reason})
+    crm_logger.log_appointment_history(
+        memory.session_id, "cancelled",
+        client_phone=details.client_phone, client_name=details.client_name,
+        property_id=details.property_id, property_title=details.property_title,
+        start_datetime=details.start_datetime.isoformat() if details.start_datetime else None,
+        event_id=event_id,
+    )
+    if email_result.success:
+        crm_logger.log_event(memory.session_id, "email_sent", {"kind": "cancel", "message_id": email_result.message_id})
+    else:
+        crm_logger.log_event(memory.session_id, "email_failed", {"kind": "cancel", "error": email_result.error}, status="failed")
 
     return AppointmentActionResult(
         success=True,

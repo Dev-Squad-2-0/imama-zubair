@@ -22,6 +22,7 @@ Appointment date/time slots don't exist yet, that parsing is separate Day 4 work
 """
 
 import re
+import uuid
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
 
@@ -93,7 +94,14 @@ class ConversationSlots:
 
 @dataclass
 class ConversationMemory:
-    """Full memory for one call: slots + turn history."""
+    """Full memory for one call: slots + turn history.
+
+    session_id: stable identifier for this call, auto-generated so every
+    ConversationMemory (the mic-loop/voice_pipeline.py path included, not
+    just api.py's n8n-driven sessions) has one to log CRM events under -
+    without it, appointment_management.py has no key to write CRM rows
+    against for calls that don't go through api.py's HTTP layer."""
+    session_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     slots: ConversationSlots = field(default_factory=ConversationSlots)
     history: List[Dict[str, str]] = field(default_factory=list)
 

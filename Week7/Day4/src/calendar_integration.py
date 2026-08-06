@@ -27,6 +27,7 @@ Setup:
 """
 
 import os
+import socket
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
@@ -38,9 +39,44 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-load_dotenv()
+# httplib2 (used under the hood by the Google API client) resolves a
+# connect()'s host a second time by name rather than reusing the address it
+# already picked from getaddrinfo() - on a dual-stack machine with a flaky
+# or tunneled IPv6 route (e.g. behind certain VPN adapters), that second
+# lookup can land on an unreachable IPv6 address and hang for ~20s before
+# timing out, even though IPv4 to the same host is instant. Forcing IPv4-only
+# resolution process-wide sidesteps that entirely.
+if not getattr(socket, "_ipv4_only_patched", False):
+    _orig_getaddrinfo = socket.getaddrinfo
 
-GOOGLE_CREDENTIALS_PATH = os.getenv("GOOGLE_CREDENTIALS_PATH")
+    def _ipv4_only_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+
+    socket.getaddrinfo = _ipv4_only_getaddrinfo
+    socket._ipv4_only_patched = True
+
+from dotenv import find_dotenv
+
+_DOTENV_PATH = find_dotenv()
+load_dotenv(_DOTENV_PATH)
+
+
+def _resolve_env_path(value: Optional[str]) -> Optional[str]:
+    """.env stores GOOGLE_CREDENTIALS_PATH as a path relative to the
+    project root ("credentials.json"). A bare relative path resolves
+    against os.getcwd() by default, which silently breaks the moment this
+    process is launched from any directory other than exactly the one
+    whoever wrote .env happened to be in - a test script run from src/, a
+    different way of starting uvicorn, etc. Anchoring it to the actual
+    .env file's own directory instead makes it work no matter where the
+    process is launched from."""
+    if not value or os.path.isabs(value):
+        return value
+    anchor = os.path.dirname(_DOTENV_PATH) if _DOTENV_PATH else os.getcwd()
+    return os.path.join(anchor, value)
+
+
+GOOGLE_CREDENTIALS_PATH = _resolve_env_path(os.getenv("GOOGLE_CREDENTIALS_PATH"))
 GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID")
 EMPLOYEE_EMAIL = os.getenv("EMPLOYEE_EMAIL")
 
@@ -203,6 +239,8 @@ def create_appointment_event(details: AppointmentDetails) -> CalendarEventResult
     except RuntimeError as e:
         # credentials/config problems from get_calendar_service()
         return CalendarEventResult(success=False, error=str(e))
+    except Exception as e:
+        return CalendarEventResult(success=False, error=f"Could not reach Google Calendar: {e}")
 
 
 def reschedule_appointment_event(event_id: str, new_start_datetime: datetime,
@@ -225,6 +263,8 @@ def reschedule_appointment_event(event_id: str, new_start_datetime: datetime,
         return CalendarEventResult(success=False, error=f"Could not find existing appointment: {e}")
     except RuntimeError as e:
         return CalendarEventResult(success=False, error=str(e))
+    except Exception as e:
+        return CalendarEventResult(success=False, error=f"Could not reach Google Calendar: {e}")
 
     # keep original duration if no new end time given
     try:
@@ -246,6 +286,8 @@ def reschedule_appointment_event(event_id: str, new_start_datetime: datetime,
         return CalendarEventResult(success=True, event_id=updated.get("id"), html_link=updated.get("htmlLink"))
     except HttpError as e:
         return CalendarEventResult(success=False, error=f"Google Calendar API error: {e}")
+    except Exception as e:
+        return CalendarEventResult(success=False, error=f"Could not reach Google Calendar: {e}")
 
 
 def cancel_appointment_event(event_id: str, reason: str = "") -> CalendarEventResult:
@@ -269,6 +311,8 @@ def cancel_appointment_event(event_id: str, reason: str = "") -> CalendarEventRe
         return CalendarEventResult(success=False, error=f"Google Calendar API error: {e}")
     except RuntimeError as e:
         return CalendarEventResult(success=False, error=str(e))
+    except Exception as e:
+        return CalendarEventResult(success=False, error=f"Could not reach Google Calendar: {e}")
 
 
 def build_appointment_from_memory(memory, property_info: dict, start_datetime: datetime,

@@ -7,6 +7,7 @@ The five tasks build on each other: Calendar integration and email automation gi
 
 ---
 
+
 ## Objectives
 - Connect the agent to Google Calendar so it can create, reschedule, and cancel real appointments
 - Send real appointment emails (confirmation, reschedule, cancellation) through Gmail
@@ -20,11 +21,31 @@ The five tasks build on each other: Calendar integration and email automation gi
 
 ## Input
 - Customer transcript text (already-transcribed turns, same shape STT would produce)
-- Google Calendar and Gmail OAuth credentials (real accounts, not sandboxed)
+- Google Calendar and Gmail OAuth credentials
 - `db/knowledge_base.db` - the same SQLite file `structured_retrieval.py` already uses for property data, extended with new tables for CRM data
 
 ---
 
+## How to Run n8n and FastAPI
+
+```bash
+
+n8n start --host=127.0.0.1 --port=5678  #start n8n
+uvicorn Day4.src.api:app --reload     #for fastapi
+
+#start execution
+#open a new powershell and insert a query:
+Invoke-RestMethod `
+-Uri "http://localhost:5678/webhook-test/voice-agent/transcript" `
+-Method POST `
+-ContentType "application/json" `
+-Body '{
+"session_id":"imamatest",
+"customer_text":"Assalam o Alaikum. Mera naam Hameed Babar hai. Mera budget 4 crore hai. Mujhe DHA Phase 6 mein August 10 ko 12 baje appointment book karni hai. Mera number 03003335578 hai."
+>>   }'
+
+```
+---
 ## Tasks / Features
 
 ### Task 1-2: Calendar Integration + Email Automation
@@ -89,7 +110,7 @@ files/
     ├── speech_behaviors.py        # existing, unchanged
     ├── demo_appointment_pipeline.py
     ├── test_crm_logging.py        # Task 5 test (33 checks)
-    └── test_n8n_workflow.py       # Task 4 test (14 checks)
+    
 ```
 
 ---
@@ -118,7 +139,7 @@ files/
 - Wire live microphone input once Day 5's LangGraph restructuring settles `run_turn()`'s interface (scaffolding already exists, deliberately not connected yet to avoid redoing it)
 - Move session storage from an in-memory dict to Redis or Postgres for multi-instance deployment
 - Add an admin/ops view over `crm_events` and the new CRM tables instead of only querying by session or phone number
-- Run the n8n workflow against a live n8n instance instead of validating it structurally, once real OAuth credentials are available in the test environment
+
 
 ---
 

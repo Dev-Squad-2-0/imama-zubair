@@ -48,7 +48,7 @@ from conversation_memory import ConversationMemory
 from recommendation_engine import recommend_properties
 from structured_retrieval import get_property_by_id
 from objection_handler import detect_objection
-from appointment_intent import detect_appointment_intent, parse_appointment_datetime
+from appointment_intent import detect_appointment_intent, parse_appointment_datetime, parse_reschedule_datetime
 from call_intent import classify_call_intent
 import calendar_integration as cal
 import email_automation as mailer
@@ -62,7 +62,7 @@ _sessions: Dict[str, ConversationMemory] = {}
 
 def _get_memory(session_id: str) -> ConversationMemory:
     if session_id not in _sessions:
-        _sessions[session_id] = ConversationMemory()
+        _sessions[session_id] = ConversationMemory(session_id=session_id)
     return _sessions[session_id]
 
 
@@ -153,6 +153,35 @@ def _appointment_details_to_dict(details: cal.AppointmentDetails) -> Dict[str, A
     }
 
 
+def _pending_appointment_dict(memory: ConversationMemory) -> Optional[Dict[str, Any]]:
+    """Builds the same shape _appointment_details_to_dict() does, but from
+    memory.slots.pending_appointment (set by /calendar/create and kept in
+    sync by /calendar/reschedule and /calendar/cancel) instead of a fresh
+    AppointmentDetails. /calendar/reschedule and /calendar/cancel need this
+    for their own response bodies: unlike /calendar/create, they only take
+    an event_id, not a full appointment payload from the caller, so this is
+    the only place n8n's email-notify nodes can get client_name/phone/
+    property_title/etc. from after a reschedule or cancel — there is no
+    upstream node in that part of the graph that already has them (the
+    cancel branch in particular never touches /appointment/prepare at
+    all)."""
+    pending = memory.slots.pending_appointment
+    if not pending:
+        return None
+    start_dt = pending.get("start_datetime")
+    return {
+        "client_name": memory.slots.client_name or "Unknown",
+        "client_phone": memory.slots.client_phone or "Not provided",
+        "property_title": pending.get("property_title", "Unknown property"),
+        "property_id": pending.get("property_id"),
+        "start_datetime": start_dt.isoformat() if hasattr(start_dt, "isoformat") else start_dt,
+        "end_datetime": None,
+        "employee_name": pending.get("employee_name") or "RealEstate Hub Agent",
+        "employee_email": pending.get("employee_email"),
+        "meeting_notes": "",
+    }
+
+
 def _dict_to_appointment_details(d: Dict[str, Any]) -> cal.AppointmentDetails:
     return cal.AppointmentDetails(
         client_name=d["client_name"],
@@ -196,6 +225,7 @@ def intent(req: TranscriptRequest):
     result = {
         "success": True,
         "session_id": req.session_id,
+        "customer_text": req.customer_text,
         "call_intent": classify_call_intent(req.customer_text),
         "appointment_intent": detect_appointment_intent(req.customer_text),
         "objection": detect_objection(req.customer_text),
@@ -231,7 +261,11 @@ def property_match(req: PropertyMatchRequest):
     if candidates:
         memory.record_shown_properties(candidates)
 
-    result = {"success": True, "session_id": req.session_id, "candidates": candidates}
+    pending_event_id = (memory.slots.pending_appointment or {}).get("event_id")
+    result = {
+        "success": True, "session_id": req.session_id, "candidates": candidates,
+        "pending_appointment_event_id": pending_event_id,
+    }
     crm_logger.log_event(
         req.session_id, "property_matched",
         {"count": len(candidates), "top_property_id": candidates[0]["id"] if candidates else None},
@@ -318,7 +352,7 @@ def calendar_create(req: CalendarCreateRequest):
 @app.post("/calendar/reschedule")
 def calendar_reschedule(req: CalendarRescheduleRequest):
     memory = _require_session(req.session_id)
-    parsed_dt = parse_appointment_datetime(req.new_datetime_text)
+    parsed_dt = parse_reschedule_datetime(req.new_datetime_text)
     if not parsed_dt:
         return {"success": False, "error": "Could not parse a new date/time from new_datetime_text"}
 
@@ -339,7 +373,7 @@ def calendar_reschedule(req: CalendarRescheduleRequest):
             start_datetime=parsed_dt.isoformat(), event_id=req.event_id,
         )
         return {"success": True, "event_id": cal_result.event_id, "old_start_datetime": str(old_start),
-                "new_start_datetime": parsed_dt.isoformat()}
+                "new_start_datetime": parsed_dt.isoformat(), "appointment": _pending_appointment_dict(memory)}
 
     crm_logger.log_event(req.session_id, "calendar_failed", {"error": cal_result.error}, status="failed")
     return {"success": False, "error": cal_result.error}
@@ -363,7 +397,7 @@ def calendar_cancel(req: CalendarCancelRequest):
             start_datetime=str(pending.get("start_datetime")) if pending.get("start_datetime") else None,
             event_id=req.event_id,
         )
-        return {"success": True, "event_id": req.event_id}
+        return {"success": True, "event_id": req.event_id, "appointment": _pending_appointment_dict(memory)}
 
     crm_logger.log_event(req.session_id, "calendar_failed", {"error": cal_result.error}, status="failed")
     return {"success": False, "error": cal_result.error}

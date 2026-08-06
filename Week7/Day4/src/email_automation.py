@@ -168,6 +168,8 @@ def send_appointment_notification(details: AppointmentDetails, requirements_text
         return EmailResult(success=False, error=f"Gmail API error: {e}")
     except RuntimeError as e:
         return EmailResult(success=False, error=str(e))
+    except Exception as e:
+        return EmailResult(success=False, error=f"Could not reach Gmail: {e}")
 
 
 def _build_reschedule_body(details: AppointmentDetails, old_start, requirements_text: str) -> str:
@@ -214,6 +216,8 @@ def send_reschedule_notification(details: AppointmentDetails, old_start_datetime
         return EmailResult(success=False, error=f"Gmail API error: {e}")
     except RuntimeError as e:
         return EmailResult(success=False, error=str(e))
+    except Exception as e:
+        return EmailResult(success=False, error=f"Could not reach Gmail: {e}")
 
 
 def _build_cancellation_body(details: AppointmentDetails, reason: str) -> str:
@@ -258,6 +262,8 @@ def send_cancellation_notification(details: AppointmentDetails, reason: str = ""
         return EmailResult(success=False, error=f"Gmail API error: {e}")
     except RuntimeError as e:
         return EmailResult(success=False, error=str(e))
+    except Exception as e:
+        return EmailResult(success=False, error=f"Could not reach Gmail: {e}")
 
 
 if __name__ == "__main__":

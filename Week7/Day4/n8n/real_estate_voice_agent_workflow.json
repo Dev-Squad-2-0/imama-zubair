@@ -256,7 +256,7 @@
         "url": "http://127.0.0.1:8000/email/notify",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"session_id\": $('POST /intent').item.json.session_id, \"kind\": \"reschedule\", \"appointment\": $('POST /calendar/reschedule').item.json, \"old_start_datetime\": $('POST /calendar/reschedule').item.json.old_start_datetime } }}",
+        "jsonBody": "={{ { \"session_id\": $('POST /intent').item.json.session_id, \"kind\": \"reschedule\", \"appointment\": $('POST /calendar/reschedule').item.json.appointment, \"old_start_datetime\": $('POST /calendar/reschedule').item.json.old_start_datetime } }}",
         "options": { "response": { "response": { "neverError": true } } }
       },
       "retryOnFail": true,
@@ -308,7 +308,7 @@
         "url": "http://127.0.0.1:8000/email/notify",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"session_id\": $('POST /intent').item.json.session_id, \"kind\": \"cancel\", \"appointment\": $('POST /appointment/prepare').item.json.appointment, \"reason\": $('POST /intent').item.json.customer_text } }}",
+        "jsonBody": "={{ { \"session_id\": $('POST /intent').item.json.session_id, \"kind\": \"cancel\", \"appointment\": $('POST /calendar/cancel').item.json.appointment, \"reason\": $('POST /intent').item.json.customer_text } }}",
         "options": { "response": { "response": { "neverError": true } } }
       },
       "retryOnFail": true,

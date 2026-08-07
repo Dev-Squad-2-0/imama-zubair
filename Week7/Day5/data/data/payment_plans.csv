@@ -1,9 +1,0 @@
-plan_id,plan_name,down_payment_pct,duration_years,installment_frequency
-1,10% Down - 5 Year Installments,10,5,Monthly
-2,15% Down - 2 Year Installments,15,2,Monthly
-3,20% Down - 2 Year Installments,20,2,Monthly
-4,20% Down - 5 Year Installments,20,5,Quarterly
-5,15% Down - 5 Year Installments,15,5,Monthly
-6,30% Down - 5 Year Installments,30,5,Quarterly
-7,15% Down - 3 Year Installments,15,3,Quarterly
-8,15% Down - 2 Year Installments,15,2,Monthly

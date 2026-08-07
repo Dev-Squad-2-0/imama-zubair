@@ -1,9 +1,0 @@
-Property ID: 55
-Type: plot
-Purpose: buy
-Location: DHA Phase 2, Islamabad
-Size: 10 marla
-Bedrooms: 0, Bathrooms: 0
-Status: available
-Amenities: Wide Roads, Covered Parking, Solar Panels, Mosque
-This property is located in DHA Phase 2, an area known for good access to schools and hospitals. The surrounding neighborhood has a mix of residential and commercial activity, making it convenient for daily errands. Public transport and main roads are within easy reach.

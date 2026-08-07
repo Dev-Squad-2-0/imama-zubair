@@ -7,7 +7,7 @@ graph.run_turn() exactly as a live call would use it. Set
 SKIP_LIVE_CALENDAR=1 to skip the sections that need live Google OAuth
 credentials.
 
-Run from src/:
+Run from tests/:
     python3 test_langgraph_workflow.py
 """
 
@@ -15,7 +15,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 
 PASS = "PASS"
 FAIL = "FAIL"
@@ -41,8 +41,9 @@ from appointment_intent import parse_reschedule_datetime
 
 now = datetime(2026, 7, 1)
 dual_date_text = "Meri August 1 ki 10 baje ki appointment ko August 7 ko 12 baje reschedule kar dein."
+resched_dt, _ = parse_reschedule_datetime(dual_date_text, now=now)
 check("parse_reschedule_datetime resolves to the NEW date, not the old one",
-      parse_reschedule_datetime(dual_date_text, now=now) == datetime(2026, 8, 7, 12, 0))
+      resched_dt == datetime(2026, 8, 7, 12, 0))
 
 
 # ---------------------------------------------------------------------------

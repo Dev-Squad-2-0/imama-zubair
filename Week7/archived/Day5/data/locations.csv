@@ -1,0 +1,16 @@
+location_id,city,area,avg_price_per_marla_pkr,price_trend
+1,Lahore,DHA Phase 6,5739227,rising
+2,Lahore,Bahria Town,3167971,declining
+3,Lahore,Gulberg,3349189,declining
+4,Lahore,Johar Town,3833632,rising
+5,Lahore,Wapda Town,2839319,declining
+6,Karachi,DHA Phase 8,4354228,rising
+7,Karachi,Clifton,2804256,stable
+8,Karachi,Gulshan-e-Iqbal,4323559,rising
+9,Karachi,Bahadurabad,2278008,declining
+10,Karachi,PECHS,2311315,rising
+11,Islamabad,Bahria Town,4385309,rising
+12,Islamabad,DHA Phase 2,1864488,declining
+13,Islamabad,F-10,5998207,rising
+14,Islamabad,G-11,4675376,rising
+15,Islamabad,Blue Area,3959357,rising

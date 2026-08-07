@@ -25,7 +25,7 @@ What's real vs what's skipped (honest, not mocked):
       already covered by Day 4 Task 1/3's own tests.
     - This is flagged explicitly below instead of silently skipped.
 
-Run from src/:
+Run from tests/:
     python3 test_crm_logging.py
 """
 
@@ -33,7 +33,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
 
 import crm_logger
 

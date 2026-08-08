@@ -22,6 +22,7 @@ final phrasing, so swapping the LLM or persona later doesn't require
 touching this file.
 """
 
+import difflib
 import re
 from dataclasses import dataclass
 from typing import Optional, List
@@ -37,13 +38,25 @@ OBJECTION_CATEGORIES = [
 ]
 
 _KEYWORDS = {
-    "price": ["mehnga", "mehngi", "expensive", "budget se zyada", "price zyada", "rate zyada"],
-    "trust": ["fraud", "dhoka", "trust nahi", "bharosa", "scam", "asli hai", "genuine hai"],
-    "location": ["door hai", "far", "location theek nahi", "access", "traffic", "connectivity"],
+    # Each category also carries a native Urdu-script variant, not a
+    # transliteration of the Roman list - same reasoning as
+    # conversation_memory.py's _NAME_PATTERNS_URDU_SCRIPT: STT can hand back
+    # either script depending on how the customer actually speaks, and this
+    # is the one place that split can't be missed - it's what decides
+    # whether the investment guardrail (never promise guaranteed returns)
+    # even fires.
+    "price": ["mehnga", "mehngi", "expensive", "budget se zyada", "price zyada", "rate zyada",
+              "مہنگا", "مہنگی", "بجٹ سے زیادہ"],
+    "trust": ["fraud", "dhoka", "trust nahi", "bharosa", "scam", "asli hai", "genuine hai",
+              "دھوکہ", "بھروسہ", "فراڈ"],
+    "location": ["door hai", "far", "location theek nahi", "access", "traffic", "connectivity",
+                 "دور ہے", "ٹریفک"],
     "investment": ["return", "profit", "resale", "value barhega", "investment achi hai",
-                    "guarantee", "kitna faida"],
-    "builder": ["builder", "developer", "construction quality", "delay", "possession late"],
-    "maintenance": ["maintenance", "upkeep", "society charges", "monthly fee", "repair"],
+                    "guarantee", "kitna faida", "منافع", "فائدہ", "گارنٹی", "انویسٹمنٹ"],
+    "builder": ["builder", "developer", "construction quality", "delay", "possession late",
+                "بلڈر", "تاخیر"],
+    "maintenance": ["maintenance", "upkeep", "society charges", "monthly fee", "repair",
+                     "دیکھ بھال", "مینٹیننس"],
 }
 
 
@@ -58,9 +71,38 @@ class ObjectionStrategy:
 
 def detect_objection(customer_text: str) -> Optional[str]:
     lowered = customer_text.lower()
+
+    # exact substring match first (fast path, no false-positive risk)
     for category, keywords in _KEYWORDS.items():
         if any(kw in lowered for kw in keywords):
             return category
+
+    # fuzzy fallback for STT spelling drift - confirmed live: Deepgram
+    # transcribed "مہنگا" (mehnga/expensive) as "ماہنگا" (one extra
+    # letter), which a plain substring check can never match no matter how
+    # many correct spellings are in _KEYWORDS. Same reasoning as
+    # nodes.py's _validate_categorical fuzzy fallback for city/area, just
+    # applied per-word since objection keywords are short phrases embedded
+    # in a longer sentence, not a single value to validate whole.
+    # cutoff=0.8 on short Urdu/Roman words: loose enough to catch a
+    # one-character STT slip, tight enough that unrelated short words
+    # don't accidentally collide (e.g. "hai" vs "kya").
+    words = lowered.split()
+    for category, keywords in _KEYWORDS.items():
+        for kw in keywords:
+            kw_word_count = len(kw.split())
+            if kw_word_count == 1:
+                if difflib.get_close_matches(kw, words, n=1, cutoff=0.8):
+                    return category
+            else:
+                # multi-word keyword ("budget se zyada") - check it as a
+                # fuzzy substring by comparing against each same-length
+                # window of words, not the whole sentence at once
+                kw_words = kw.split()
+                for i in range(len(words) - kw_word_count + 1):
+                    window = " ".join(words[i:i + kw_word_count])
+                    if difflib.SequenceMatcher(None, kw, window).ratio() >= 0.8:
+                        return category
     return None
 
 

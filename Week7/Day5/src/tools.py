@@ -34,14 +34,23 @@ import structured_retrieval
 @tool
 def search_property_tool(budget: Optional[int] = None, city: Optional[str] = None,
                           area: Optional[str] = None, bedrooms: Optional[int] = None,
-                          purpose: Optional[str] = None, top_n: int = 3) -> List[Dict[str, Any]]:
-    """Searches properties matching budget/city/area/bedrooms/purpose, ranked
-    by match score. Never returns a property that isn't currently available -
+                          purpose: Optional[str] = None, property_type: Optional[str] = None,
+                          top_n: int = 3) -> List[Dict[str, Any]]:
+    """Searches properties matching budget/city/area/bedrooms/purpose/property_type,
+    ranked by match score. Never returns a property that isn't currently available -
     structured_retrieval.search_properties() (which this calls into via
     recommendation_engine) filters on status="available" by default, and
-    this tool does not override that filter."""
+    this tool does not override that filter.
+
+    city, area, and property_type must be one of the values actually present
+    in the properties database, not invented or guessed - callers should
+    validate these against structured_retrieval.get_distinct_cities() /
+    get_distinct_areas() / get_distinct_property_types() before calling this
+    tool with a value the customer mentioned (see nodes.py's
+    recommendation_node for how this is enforced)."""
     return recommendation_engine.recommend_properties(
-        budget=budget, city=city, area=area, bedrooms=bedrooms, purpose=purpose, top_n=top_n,
+        budget=budget, city=city, area=area, bedrooms=bedrooms,
+        purpose=purpose, property_type=property_type, top_n=top_n,
     )
 
 

@@ -31,13 +31,26 @@ from typing import Optional, List, Dict, Any
 _CRORE = 10_000_000
 _LAKH = 100_000
 
+# Eastern Arabic-Indic digits (۰-۹, used in Urdu script) -> ASCII digits.
+# This is NOT transliteration of language/meaning - a digit is the same
+# number regardless of which numeral system renders it, so normalizing
+# ۳ -> 3 before regex parsing carries zero translation risk, unlike
+# converting words. Deepgram can return either digit style depending on
+# the transcript, and _CRORE/_LAKH-suffixed amounts need ASCII digits to
+# match the existing \d+ patterns below.
+_URDU_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
+
+
+def _normalize_digits(text: str) -> str:
+    return text.translate(_URDU_DIGITS)
+
 
 def parse_pkr_amount(text: str) -> Optional[int]:
-    text = text.lower()
-    m = re.search(r"(\d+(?:\.\d+)?)\s*crore", text)
+    text = _normalize_digits(text).lower()
+    m = re.search(r"(\d+(?:\.\d+)?)\s*(?:crore|کروڑ)", text)
     if m:
         return int(float(m.group(1)) * _CRORE)
-    m = re.search(r"(\d+(?:\.\d+)?)\s*lakh", text)
+    m = re.search(r"(\d+(?:\.\d+)?)\s*(?:lakh|لاکھ)", text)
     if m:
         return int(float(m.group(1)) * _LAKH)
     m = re.search(r"\b(\d{6,})\b", text)  # raw number like 15000000
@@ -51,11 +64,30 @@ _PHONE_PATTERN = re.compile(r"(?:\+92[\s-]?|0)3\d{2}[\s-]?\d{7}\b")
 
 # Only fires on explicit self-introduction phrasing, not on any arbitrary
 # name-shaped text, since guessing a name from loose text is unreliable.
+#
+# Two script families, not a transliteration layer: STT (Deepgram,
+# language=ur) can return either Roman "UrduLish" text or native Urdu
+# script depending on how the customer actually speaks, and there is no
+# reliable way to predict which one shows up on a given call. Rather than
+# converting everything through a transliteration step (extra latency, a
+# new failure mode, and would still need to guess the "correct" spelling of
+# a name either way), the same structural phrase patterns are just written
+# twice: once matching Roman letters, once matching the Arabic/Urdu
+# Unicode block (U+0600-U+06FF). Both are equally "the real detector", not
+# a fallback for each other.
 _NAME_PATTERNS = [
     re.compile(r"mera naam ([A-Za-z]+(?:\s[A-Za-z]+)?)\s+(?:hai|hain)\b", re.IGNORECASE),
     re.compile(r"main ([A-Za-z]+(?:\s[A-Za-z]+)?)\s+bol (?:raha|rahi) hoon", re.IGNORECASE),
     re.compile(r"my name is ([A-Za-z]+(?:\s[A-Za-z]+)?)", re.IGNORECASE),
     re.compile(r"this is ([A-Za-z]+(?:\s[A-Za-z]+)?) speaking", re.IGNORECASE),
+]
+
+# Native-script equivalent of "mera naam X hai" / "main X bol raha/rahi hoon".
+# Captured as the raw Unicode span (no .title()-casing, that's a Latin-script
+# concept) - non-greedy up to the "ہے"/"ہوں" that closes the phrase.
+_NAME_PATTERNS_URDU_SCRIPT = [
+    re.compile(r"میرا نام\s+([\u0600-\u06FF]+(?:\s[\u0600-\u06FF]+)?)\s+ہے"),
+    re.compile(r"میں\s+([\u0600-\u06FF]+(?:\s[\u0600-\u06FF]+)?)\s+بول (?:رہا|رہی) ہوں"),
 ]
 
 
@@ -69,6 +101,10 @@ def parse_client_name(text: str) -> Optional[str]:
         m = pattern.search(text)
         if m:
             return m.group(1).strip().title()
+    for pattern in _NAME_PATTERNS_URDU_SCRIPT:
+        m = pattern.search(text)
+        if m:
+            return m.group(1).strip()  # no .title() - not a Latin-script concept
     return None
 
 
@@ -126,48 +162,103 @@ class ConversationMemory:
             # fallback (\d{6,}) can't misread them as a budget figure
             text = _PHONE_PATTERN.sub("", text)
 
+        text = _normalize_digits(text)
         lowered = text.lower()
 
         amount = parse_pkr_amount(text)
         if amount:
             self.slots.budget = amount
 
-        # maps loose customer phrasing to the canonical area name stored in the DB
+        # Maps loose customer phrasing to the canonical area name stored in
+        # the DB. IMPORTANT - this list is manually maintained and can drift
+        # out of sync with the actual properties table (e.g. "Johar Town"
+        # and "DHA Phase 2" showed up in real live-pipeline data but weren't
+        # in this dict at all, in EITHER script, until this fix - a stale
+        # entry here doesn't error, it just silently returns unfiltered
+        # results, which is much harder to notice). Worth checking this
+        # against `SELECT DISTINCT area FROM properties` periodically, or
+        # better, sourcing it dynamically from structured_retrieval.py
+        # instead of hardcoding it here at all.
         area_aliases = {
-            "dha phase 6": "DHA Phase 6",
-            "dha": "DHA Phase 6",   # only DHA phase in this demo dataset
+            "dha phase 6": "DHA Phase 6", "dha phase 2": "DHA Phase 2",
+            "dha": "DHA Phase 6",  # ambiguous bare "DHA" defaults to phase 6
             "bahria town": "Bahria Town",
             "gulberg": "Gulberg",
             "gulshan-e-iqbal": "Gulshan-e-Iqbal",
+            "johar town": "Johar Town",
             "f-10": "F-10", "f-11": "F-11", "e-11": "E-11",
+            # native Urdu script - same canonical values, not a fallback list
+            "ڈی ایچ اے فیز 6": "DHA Phase 6", "ڈی ایچ اے فیز 2": "DHA Phase 2",
+            "ڈی ایچ اے": "DHA Phase 6",
+            "بحریہ ٹاؤن": "Bahria Town",
+            "گلبرگ": "Gulberg",
+            "گلشن اقبال": "Gulshan-e-Iqbal",
+            "جوہر ٹاؤن": "Johar Town",
+            "ایف 10": "F-10",
         }
         for alias in sorted(area_aliases, key=len, reverse=True):
             if alias in lowered:
                 self.slots.area = area_aliases[alias]
                 break
 
-        for city in ["lahore", "karachi", "islamabad"]:
-            if city in lowered:
-                self.slots.city = city.title()
+        _CITY_ALIASES = {
+            "lahore": "Lahore", "karachi": "Karachi", "islamabad": "Islamabad",
+            "لاہور": "Lahore", "کراچی": "Karachi", "اسلام آباد": "Islamabad",
+        }
+        for city_kw in sorted(_CITY_ALIASES, key=len, reverse=True):
+            if city_kw in lowered:
+                self.slots.city = _CITY_ALIASES[city_kw]
                 break
 
-        for purpose_kw, purpose_val in [("rent", "rent"), ("kiraya", "rent"),
-                                          ("invest", "investment"), ("buy", "buy"),
-                                          ("khareed", "buy"), ("commercial", "commercial")]:
+        for purpose_kw, purpose_val in [
+            ("rent", "rent"), ("kiraya", "rent"), ("invest", "investment"),
+            ("buy", "buy"), ("khareed", "buy"), ("commercial", "commercial"),
+            ("کرایہ", "rent"), ("سرمایہ کاری", "investment"), ("انویسٹمنٹ", "investment"),
+            ("خریدنا", "buy"), ("خریدیں", "buy"), ("کمرشل", "commercial"),
+        ]:
             if purpose_kw in lowered:
                 self.slots.purpose = purpose_val
                 break
 
-        m = re.search(r"(\d+)\s*(?:bed|bedroom|kamre)", lowered)
+        m = re.search(r"(\d+)\s*(?:bed|bedroom|kamre|کمرے|بیڈ روم|بیڈروم)", lowered)
         if m:
             self.slots.bedrooms = int(m.group(1))
 
-        if any(p in lowered for p in ["sasti", "kam budget", "cheaper", "affordable"]):
+        if any(p in lowered for p in ["sasti", "kam budget", "cheaper", "affordable",
+                                        "سستی", "کم بجٹ", "سستا"]):
             # "us se sasti koi option" -> lower the ceiling below the last shown price
             if self.slots.last_shown_min_price:
                 self.slots.budget = self.slots.last_shown_min_price - 1
 
-        if any(p in lowered for p in ["nahi chahiye", "nahi", "not interested", "no thanks"]):
+        # .lower() is a no-op on Arabic-script text (no case there), so one
+        # substring check covers both script families once both keyword
+        # sets are in the same list - no separate branch needed.
+        _DECLINE_PHRASES = [
+            "nahi chahiye", "not interested", "no thanks",
+            # native Urdu script - see _NAME_PATTERNS_URDU_SCRIPT's comment
+            # above for why this is a second real pattern set, not a
+            # transliteration step
+            "نہیں چاہیے", "دلچسپی نہیں", "شکریہ نہیں",
+        ]
+        # Bare "no"/"نہیں" with nothing else - confirmed live: "گودام نہیں"
+        # (not a warehouse), embedded in a longer property-preference
+        # sentence, matched a bare "نہیں" substring check and incorrectly
+        # registered as the customer declining the whole conversation,
+        # when they were actually just excluding one property TYPE. A
+        # short, standalone "نہیں"/"nahi" (like the customer just saying
+        # "نہیں" alone in response to a suggestion) is a real, high-
+        # confidence decline signal; the same word buried in a longer,
+        # information-rich sentence usually isn't - it's negating one
+        # specific word nearby, not the whole exchange. Word-count cutoff
+        # is a blunt instrument but a safe one: false negatives here just
+        # mean a real short decline phrase should be added to the list
+        # above instead, not that this heuristic needs to get cleverer.
+        _BARE_NO_WORDS = ["nahi", "نہیں"]
+        is_bare_no = len(text.split()) <= 4 and any(
+            w == lowered.strip() or lowered.strip().startswith(w + " ") or lowered.strip().endswith(" " + w)
+            for w in _BARE_NO_WORDS
+        )
+        if any(p in lowered for p in _DECLINE_PHRASES) or is_bare_no:
             self.slots.decline_count += 1
 
     def record_shown_properties(self, properties: List[Dict[str, Any]]):

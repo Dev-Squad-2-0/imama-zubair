@@ -118,6 +118,57 @@ def get_location_info(location_id: int):
     return dict(row) if row else None
 
 
+# ---------- Distinct-value lookups (domain-agnostic entity validation) ----------
+#
+# Used by nodes.py to validate LLM-extracted city/area/property_type against
+# what's actually in the dataset, instead of maintaining a hardcoded Python
+# list of every area name (see conversation_memory.py's area_aliases dict,
+# which had exactly this staleness problem - "Johar Town" and "DHA Phase 2"
+# existed in the real data but not in that hardcoded dict, in either
+# script). Swapping domain_config.yaml + data/ + documents/ for a different
+# business now needs zero changes here - these always reflect whatever is
+# actually in the properties table.
+#
+# Lazily cached per process (mirrors rag_pipeline.py's _collection getter
+# pattern) since these rarely change mid-session and recommendation_node
+# calls this on every turn - a full table scan every turn would be wasteful.
+_distinct_cache = {}
+
+
+def _get_distinct(column: str, status: str = "available") -> list:
+    key = (column, status)
+    if key not in _distinct_cache:
+        conn = _connect()
+        query = f"SELECT DISTINCT {column} FROM properties WHERE {column} IS NOT NULL"
+        params = []
+        if status:
+            query += " AND status = ?"
+            params.append(status)
+        rows = conn.execute(query, params).fetchall()
+        conn.close()
+        _distinct_cache[key] = [r[0] for r in rows if r[0]]
+    return _distinct_cache[key]
+
+
+def get_distinct_cities() -> list:
+    return _get_distinct("city")
+
+
+def get_distinct_areas() -> list:
+    return _get_distinct("area")
+
+
+def get_distinct_property_types() -> list:
+    return _get_distinct("property_type")
+
+
+def clear_distinct_cache() -> None:
+    """Call this if the properties table changes mid-process (e.g. a test
+    reloads the dataset) - otherwise the cache above would keep serving
+    stale values for the rest of the process lifetime."""
+    _distinct_cache.clear()
+
+
 if __name__ == "__main__":
     print("Sample structured queries:\n")
     sample = search_properties(city="Lahore", purpose="buy")[:3]

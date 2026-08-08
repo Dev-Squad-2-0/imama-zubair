@@ -1,0 +1,50 @@
+[
+  {
+    "turn_id": "turn_01",
+    "text": "میرا نام امامہ ہے۔ میرا بجٹ تین کروڑ ہے، مجھے ڈی ایچ اے فیز 6 میں گھر چاہیے۔",
+    "purpose": "name/budget/city/area capture from native script",
+    "file": "turn_01.mp3"
+  },
+  {
+    "turn_id": "turn_02",
+    "text": "نہیں",
+    "purpose": "plain decline, native script (decline_count -> 1)",
+    "file": "turn_02.mp3"
+  },
+  {
+    "turn_id": "turn_03",
+    "text": "Nahi, abhi nahi chahiye.",
+    "purpose": "second decline, Roman script (decline_count -> 2, stop-pushing rule)",
+    "file": "turn_03.mp3"
+  },
+  {
+    "turn_id": "turn_04",
+    "text": "ڈی ایچ اے فیز 6 میں کیا سہولیات ہیں؟",
+    "purpose": "factual question, native script -> should route to rag, not recommendation",
+    "file": "turn_04.mp3"
+  },
+  {
+    "turn_id": "turn_05",
+    "text": "یہ مہنگا ہے۔",
+    "purpose": "price objection, native script -> objection=price should be detected",
+    "file": "turn_05.mp3"
+  },
+  {
+    "turn_id": "turn_06",
+    "text": "ڈی ایچ اے فیز 6 کی اپوائنٹمنٹ بک کر دیں۔",
+    "purpose": "booking phrase, native script -> THE bug this session found: previously always misrouted to recommendation, never to booking",
+    "file": "turn_06.mp3"
+  },
+  {
+    "turn_id": "turn_07",
+    "text": "مجھے کراچی کے کلفٹن ایریا میں پراپرٹی چاہیے۔",
+    "purpose": "real city (Karachi) + a made-up/unlisted area (Clifton) -> should trigger the new DB-validated clarification flow, NOT silently search unfiltered",
+    "file": "turn_07.mp3"
+  },
+  {
+    "turn_id": "turn_08",
+    "text": "شکریہ، خدا حافظ۔",
+    "purpose": "goodbye, native script -> should route to goodbye node and end the call",
+    "file": "turn_08.mp3"
+  }
+]

@@ -1,22 +1,6 @@
 """
 Day 4 - appointment intent detection + date/time parsing.
 
-Small, deliberately-scoped companion to objection_handler.py: same
-keyword-classification pattern, applied to booking intent instead of
-objections. Lives separately from appointment_management.py because that
-module is pure action-execution (given a datetime, do the booking) — intent
-detection and parsing are a different concern (given raw customer text,
-figure out WHAT the customer wants and WHEN).
-
-Honesty note on the parser: this is a best-effort regex parser for common
-UrduLish date/time phrasing ("kal 5 baje", "parso shaam 6 baje", "Monday
-10 AM"), not a full natural-language date parser. It returns None on
-anything it can't confidently parse, and the caller (conversation_agent.py)
-is expected to ask the customer to clarify rather than guess a time —
-matching the project's "flag missing data rather than approximating" rule.
-Anything genuinely ambiguous (e.g. a bare "5 baje" with no AM/PM cue) is
-resolved with a documented default, not silently guessed differently each
-time.
 """
 
 import re
@@ -26,18 +10,30 @@ from typing import Optional
 
 # ---------- Intent detection ----------
 
+# Each list also carries native Urdu-script keywords, not a transliteration
+# of the Roman ones - same reasoning as conversation_memory.py's name/decline
+# patterns: STT can hand back either script depending on how the customer
+# speaks, and English loanwords ("book", "appointment", "cancel",
+# "reschedule") commonly get rendered phonetically IN Urdu script by Deepgram
+# ("بک" for "book", "اپوائنٹمنٹ" for "appointment") rather than transliterated
+# to Roman letters - a plain Roman "book kar" pattern can never match that.
 _CANCEL_KEYWORDS = [
     "cancel kar", "cancel ker", "appointment cancel", "visit cancel",
     "cancel karna", "cancel krna", "nahi aana ab", "appointment khatam",
+    "کینسل کر", "اپوائنٹمنٹ کینسل", "وزٹ کینسل", "اب نہیں آنا", "اپوائنٹمنٹ ختم",
 ]
 _RESCHEDULE_KEYWORDS = [
     "reschedule", "time change", "waqt tabdeel", "aage kar do", "date change",
     "time badal", "waqt badal", "kisi aur din", "kisi aur waqt",
+    "ری شیڈول", "وقت تبدیل", "آگے کر دیں", "تاریخ تبدیل", "وقت بدل",
+    "کسی اور دن", "کسی اور وقت",
 ]
 _BOOK_KEYWORDS = [
     "book kar", "book ker", "appointment book", "visit book", "book karna",
     "schedule kar", "visit fix", "milna chahta", "milna chahti", "site visit",
     "appointment lena", "appointment chahiye",
+    "بک کر", "اپوائنٹمنٹ بک", "وزٹ بک", "بک کرنا", "شیڈول کر", "وزٹ فکس",
+    "ملنا چاہتی", "ملنا چاہتا", "سائٹ وزٹ", "اپوائنٹمنٹ لینا", "اپوائنٹمنٹ چاہیے",
 ]
 
 
@@ -62,6 +58,10 @@ def detect_appointment_intent(customer_text: str) -> Optional[str]:
 _WEEKDAYS = {
     "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
     "friday": 4, "saturday": 5, "sunday": 6,
+    # native Urdu script - same reasoning as every other script gap fixed
+    # this session: STT can hand back either script, and a Roman-only list
+    # silently fails on perfectly ordinary native-script phrasing
+    "پیر": 0, "منگل": 1, "بدھ": 2, "جمعرات": 3, "جمعہ": 4, "ہفتہ": 5, "اتوار": 6,
 }
 
 _MONTHS = {
@@ -78,12 +78,13 @@ _DEFAULT_HOUR_IF_NO_TIME_GIVEN = 12  # noon, used only when a day is parsed but 
 
 def _parse_relative_day(lowered: str, now: datetime) -> Optional[datetime]:
     """Returns a date (time still 00:00) for 'aaj'/'kal'/'parso'/'today'/
-    'tomorrow'/a weekday name. None if no day reference found."""
-    if "parso" in lowered:
+    'tomorrow'/a weekday name (Roman or native Urdu script). None if no
+    day reference found."""
+    if "parso" in lowered or "پرسوں" in lowered:
         return (now + timedelta(days=2)).replace(hour=0, minute=0, second=0, microsecond=0)
-    if "kal" in lowered or "tomorrow" in lowered:
+    if "kal" in lowered or "tomorrow" in lowered or "کل" in lowered:
         return (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
-    if "aaj" in lowered or "today" in lowered:
+    if "aaj" in lowered or "today" in lowered or "آج" in lowered:
         return now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     for name, weekday_num in _WEEKDAYS.items():
@@ -191,7 +192,7 @@ def _parse_clock_time(lowered: str) -> Optional[tuple]:
     match that's already confirmed to be a time (has 'baje' with no
     explicit period word) — it no longer decides whether something is a
     time reference at all."""
-    m = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(baje|a\.m\.|p\.m\.|am|pm)\b", lowered)
+    m = re.search(r"\b(\d{1,2})(?::(\d{2}))?\s*(baje|بجے|a\.m\.|p\.m\.|am|pm)\b", lowered)
     if m is None:
         # no marker anywhere, but an explicit ':MM' is unambiguous enough
         # on its own to count as a time reference (e.g. "5:30")
@@ -205,11 +206,16 @@ def _parse_clock_time(lowered: str) -> Optional[tuple]:
         return None
 
     # AM/PM resolved only from local context around this specific match,
-    # not the whole sentence, so an unrelated marker can't leak in
+    # not the whole sentence, so an unrelated marker can't leak in.
+    # شام (evening) / رات (night) / صبح (morning) alongside the existing
+    # Roman words - "دوپہر" (dopeher/afternoon) deliberately excluded from
+    # is_pm_word: it commonly means the early-afternoon hours (12-4pm)
+    # which the existing 1-7->PM bare-hour default already covers
+    # correctly without needing an explicit period word at all.
     start, end = m.span()
     context = lowered[max(0, start - 20):end + 20]
-    is_pm_word = bool(re.search(r"\bpm\b|p\.m\.|shaam|raat|evening|night", context))
-    is_am_word = bool(re.search(r"\bam\b|a\.m\.|subah|morning", context))
+    is_pm_word = bool(re.search(r"\bpm\b|p\.m\.|shaam|raat|evening|night|شام|رات", context))
+    is_am_word = bool(re.search(r"\bam\b|a\.m\.|subah|morning|صبح", context))
 
     if hour <= 12:
         if is_pm_word and hour != 12:

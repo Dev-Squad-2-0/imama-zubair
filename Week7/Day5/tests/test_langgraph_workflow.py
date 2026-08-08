@@ -41,7 +41,7 @@ from appointment_intent import parse_reschedule_datetime
 
 now = datetime(2026, 7, 1)
 dual_date_text = "Meri August 1 ki 10 baje ki appointment ko August 7 ko 12 baje reschedule kar dein."
-resched_dt, _ = parse_reschedule_datetime(dual_date_text, now=now)
+resched_dt = parse_reschedule_datetime(dual_date_text, now=now)
 check("parse_reschedule_datetime resolves to the NEW date, not the old one",
       resched_dt == datetime(2026, 8, 7, 12, 0))
 

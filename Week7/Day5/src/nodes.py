@@ -21,6 +21,7 @@ PARTIAL state update (LangGraph merges it in) and is wrapped with
 @traced_node (Task 5) right where it's defined.
 """
 
+import difflib
 import os
 import re
 import sys
@@ -36,7 +37,7 @@ from graph_logger import traced_node
 import llm_client
 from call_intent import classify_call_intent
 from appointment_intent import detect_appointment_intent, parse_appointment_datetime, parse_reschedule_datetime
-from objection_handler import detect_objection, build_strategy, should_stop_pushing
+from objection_handler import detect_objection, build_strategy
 import structured_retrieval
 from tools import (
     search_property_tool, check_availability_tool, book_calendar_tool,
@@ -44,11 +45,43 @@ from tools import (
     rag_search_tool, property_lookup_tool,
 )
 
+# ---------- Day 1: persona + system prompt (name, scope, instruction
+# hierarchy/prompt-injection defense, guardrails, persuasion rules,
+# appointment policy, escalation rules) ----------
+#
+# Loaded the same way conversation_agent.py already loads them, and reused
+# here rather than reimplemented, so both orchestrators speak from the same
+# base prompt. Every node that makes an LLM call prepends this to its own
+# task-specific instructions (see _RAG_SYSTEM_PROMPT / _RECOMMENDATION_SYSTEM_PROMPT
+# below) instead of using a narrower ad hoc prompt.
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+with open(os.path.join(_ROOT, "prompts", "system_prompt.md"), encoding="utf-8") as _f:
+    SYSTEM_PROMPT = _f.read()
+
+with open(os.path.join(_ROOT, "persona", "urdulish_persona.md"), encoding="utf-8") as _f:
+    PERSONA = _f.read()
+
+BASE_PROMPT = SYSTEM_PROMPT + "\n\n" + PERSONA
+
 
 # ---------- shared helpers ----------
 
 def _say(state: AgentState, reply: str) -> List[Dict[str, str]]:
     return state["conversation_history"] + [{"speaker": "agent", "text": reply}]
+
+
+def _recent_history(state: AgentState, n: int = 8) -> List[Dict[str, str]]:
+    """Last n turns of conversation_history EXCLUDING the current customer
+    turn (that's passed separately as the LLM call's user_prompt, see
+    recommendation_node/rag_node) - caps how much context each call carries
+    so a long call doesn't compound both token cost and latency turn after
+    turn. By the time this runs, intent_detection_node has already appended
+    the current customer turn as the LAST entry, hence the [:-1]."""
+    history = state["conversation_history"]
+    prior = history[:-1] if history and history[-1].get("speaker") == "customer" else history
+    return prior[-n:]
 
 
 _PROPERTY_ID_PATTERN = re.compile(r"property\s*(?:number|no\.?|#)?\s*(\d+)", re.IGNORECASE)
@@ -89,27 +122,79 @@ def greeting_node(state: AgentState) -> Dict[str, Any]:
     return {"agent_reply": _GREETING_LINE, "conversation_history": _say(state, _GREETING_LINE)}
 
 
+@traced_node("silence", annotate=lambda i, o: "dead air prompt sent")
+def silence_node(state: AgentState) -> Dict[str, Any]:
+    """Day 6 finding: empty customer_text mid-call (dead air, a dropped
+    STT result) used to route straight back to greeting_node, replaying
+    the call's opening line as if it had just started - confirmed via the
+    evaluation suite's silent_caller scenarios. graph.py's _entry_router
+    now sends empty-text turns here instead, UNLESS it's genuinely turn 1
+    of the call. Deterministic, no LLM call - there's no real customer
+    text to reason about, and a templated "are you there?" prompt is
+    exactly as good as anything an LLM would produce here, for free."""
+    reply = "Hmm... aap wahan hain? Agar sun rahe hain toh please bata dijiye, main sun raha hoon."
+    return {"agent_reply": reply, "conversation_history": _say(state, reply)}
+
+
 # ---------- 2. Intent Detection ----------
 
-_GOODBYE_KEYWORDS = [
+GOODBYE_KEYWORDS = [
     "shukriya", "thank you", "thanks", "bye", "khuda hafiz", "allah hafiz",
     "theek hai bas", "bas itna hi", "koi masla nahi",
+    # native Urdu script - see conversation_memory.py's _NAME_PATTERNS_URDU_SCRIPT
+    # comment for why this is a real second pattern set, not a transliteration step
+    "شکریہ", "خدا حافظ", "اللہ حافظ", "بس اتنا ہی", "ٹھیک ہے بس",
+]
+
+_ESCALATION_KEYWORDS = [
+    "human se baat", "insaan se baat", "kisi insaan se", "real agent",
+    "actual agent", "speak to a human", "speak to someone", "talk to a person",
+    "manager se baat", "supervisor se baat", "representative se baat",
+    "connect me to a human", "talk to a human",
+    # native Urdu script
+    "انسان سے بات", "کسی انسان سے", "منیجر سے بات", "سپروائزر سے بات",
+    "ہیومن سے بات",  # transliterated loanword, see call_intent.py's _RENTAL_KEYWORDS comment
 ]
 
 
+def detect_escalation_request(customer_text: str) -> bool:
+    """Day 1 ESCALATION RULES: 'The customer explicitly asks for a human' -
+    same deterministic keyword-classifier pattern as objection_handler.py/
+    call_intent.py, checked by graph.py's router before anything else so an
+    explicit request is honored 'immediately without resistance' regardless
+    of whatever else this turn's text also contains."""
+    lowered = customer_text.lower()
+    return any(kw in lowered for kw in _ESCALATION_KEYWORDS)
+
+
 def is_goodbye_turn(state: AgentState) -> bool:
-    """Closing language, or Day 3's existing 2-decline stop-pushing rule
-    (objection_handler.should_stop_pushing) - checked by graph.py's router,
-    not a node itself."""
+    """Closing language only - checked by graph.py's router, not a node
+    itself.
+
+    Previously also returned True whenever should_stop_pushing(decline_count)
+    was true (decline_count >= 2). That's wrong: nothing ever resets
+    decline_count, so once a customer declined two property SUGGESTIONS,
+    every subsequent turn for the rest of the call - a factual question, a
+    booking request, anything - got silently routed to goodbye before the
+    graph even looked at what they said (confirmed live: turns 4/6/7 in a
+    session all got mis-routed to goodbye off one decline_count>=2 set on
+    turn 3). system_prompt.md's actual guardrail is "do not continue
+    pushing A SALE" - i.e. stop suggesting new properties, not end the
+    call. That's now handled in recommendation_node's system prompt
+    instead (see _recommendation_system_prompt), which is where a
+    guardrail about sales pushiness belongs - it should change HOW
+    recommendation_node behaves, not hijack routing for the whole rest of
+    the conversation."""
     lowered = state["customer_text"].lower()
-    if any(kw in lowered for kw in _GOODBYE_KEYWORDS):
-        return True
-    return should_stop_pushing(state["decline_count"])
+    return any(kw in lowered for kw in GOODBYE_KEYWORDS)
 
 
 def _annotate_intent(_inp, out):
     intent = out.get("intent", {})
     return f"call_intent={intent.get('call_intent')}, appointment_intent={intent.get('appointment_intent')}"
+
+
+_STICKY_CALL_INTENTS = {"seller_inquiry", "rental_inquiry", "commercial_inquiry", "investment_inquiry"}
 
 
 @traced_node("intent_detection", annotate=_annotate_intent)
@@ -123,8 +208,30 @@ def intent_detection_node(state: AgentState) -> Dict[str, Any]:
     updates = slots_from_text(state["user_profile"], state["property_preferences"],
                                state["decline_count"], text)
 
+    new_call_intent = classify_call_intent(text)
+    prev_call_intent = state["intent"].get("call_intent")
+    # Day 6 finding: call_intent used to be recomputed from THIS turn's
+    # text alone every time, nothing carried forward - a seller who said
+    # "book a valuation visit for tomorrow" on turn 2 (no selling-related
+    # words in that sentence at all) silently flipped back to the generic
+    # buyer_inquiry default, which then made booking_node treat them as a
+    # buyer needing a real recommended property_id - the exact bug
+    # seller_node/booking_node's seller support was just built to fix,
+    # one turn later. Same shape of bug would hit rental/commercial/
+    # investment customers the same way. Once one of these more specific
+    # categories is known, a later turn that doesn't repeat its keywords
+    # shouldn't silently downgrade it back to the default - but a later
+    # turn that DOES carry a new specific signal (e.g. they clarify it's
+    # actually a rental, not a sale) still correctly overrides it, since
+    # this only kicks in when new_call_intent came back as the generic
+    # fallback, never when it found a real signal of its own.
+    if new_call_intent == "buyer_inquiry" and prev_call_intent in _STICKY_CALL_INTENTS:
+        call_intent = prev_call_intent
+    else:
+        call_intent = new_call_intent
+
     intent = {
-        "call_intent": classify_call_intent(text),
+        "call_intent": call_intent,
         "appointment_intent": detect_appointment_intent(text),
         "objection": detect_objection(text),
     }
@@ -138,9 +245,8 @@ def intent_detection_node(state: AgentState) -> Dict[str, Any]:
 
 # ---------- 3. RAG (the one node with real LLM tool-calling) ----------
 
-_RAG_SYSTEM_PROMPT = (
-    "You are a real estate assistant answering a factual question from a phone "
-    "customer. You have two tools: rag_search_tool for semantic search over "
+_RAG_SYSTEM_PROMPT = BASE_PROMPT + "\n\n" + (
+    "You have two tools for THIS turn: rag_search_tool for semantic search over "
     "brochures/descriptions/FAQs, and property_lookup_tool for an exact field on "
     "a known property id (price, availability, size, agent contact). Use whichever "
     "tool actually answers the question - property_lookup_tool when a specific "
@@ -148,7 +254,12 @@ _RAG_SYSTEM_PROMPT = (
     "rag_search_tool. Answer ONLY using what the tool(s) return; if the tools "
     "don't contain the answer, say honestly that you don't have that information "
     "rather than guessing. Reply in natural Pakistani UrduLish, under 80 words, "
-    "plain spoken sentences, no markdown."
+    "plain spoken sentences, no markdown.\n\n"
+    "This is an ongoing phone call - the greeting has already happened earlier "
+    "in the conversation shown above. Do not reintroduce yourself, re-greet, or "
+    "restate who you are or what company this is. Reply as a natural continuation "
+    "of the conversation, referencing what the customer already told you instead "
+    "of asking them to repeat it."
 )
 
 _RAG_TOOLS = [rag_search_tool, property_lookup_tool]
@@ -175,13 +286,157 @@ def rag_node(state: AgentState) -> Dict[str, Any]:
     try:
         reply = llm_client.generate_with_tools(
             _RAG_SYSTEM_PROMPT, state["customer_text"] + hint, _RAG_TOOL_SCHEMAS, _execute_rag_tool,
+            history=_recent_history(state),
         )
     except RuntimeError as e:
         reply = "Maazrat sir, is waqt yeh maloomat nikalne mein masla ho raha hai, thori dair baad dobara poochein."
     return {"agent_reply": reply, "conversation_history": _say(state, reply)}
 
 
-# ---------- 4. Recommendation (deterministic tool call + objection-aware phrasing) ----------
+# ---------- 4a. Seller inquiry (Day 6: no recommendation makes sense here - a
+# customer offering to LIST their own property doesn't want company
+# inventory recommended back to them, which is what recommendation_node
+# would otherwise do by default. Deterministic, no LLM call: this is a
+# short, fixed intake-and-handoff exchange, not a reasoning-heavy turn -
+# every additional LLM call this session has cost 8-20s in practice, not
+# worth paying that here for something a template says just as well.) ----------
+
+@traced_node("seller", annotate=lambda i, o: "seller lead logged")
+def seller_node(state: AgentState) -> Dict[str, Any]:
+    """Acknowledges a seller lead, captures whatever conversation_memory.py
+    already parsed this turn (name/phone/area/property_type - the same
+    slots buyer flows use, reused here since they mean roughly the same
+    thing for "property being sold" as "property being sought"), logs a
+    CRM seller_lead event so a human agent can follow up and actually
+    evaluate/list the property (valuing and listing a property is outside
+    what a phone agent should decide on its own), and does NOT route into
+    recommendation_node."""
+    profile = state["user_profile"]
+    prefs = state["property_preferences"]
+
+    crm_log_tool.invoke({
+        "session_id": state["session_id"], "event_type": "seller_lead",
+        "payload": {
+            "client_name": profile.get("client_name"), "client_phone": profile.get("client_phone"),
+            "city": prefs.get("city"), "area": prefs.get("area"),
+            "property_type": prefs.get("property_type"), "raw_text": state["customer_text"],
+        },
+    })
+
+    name_part = f"{profile['client_name']} ji, " if profile.get("client_name") else ""
+    if profile.get("client_phone"):
+        reply = (f"Ji {name_part}bohot shukriya aap ki property RealEstate Hub ke saath list karne "
+                 f"ke liye. Hamari team aap ko is number par contact karegi: {profile['client_phone']}, "
+                 f"property ki details aur valuation discuss karne ke liye.")
+    else:
+        reply = (f"Ji {name_part}bohot shukriya, hum aap ki property list karne mein madad kar sakte "
+                 f"hain. Iske liye hamari team ko aap ka naam aur contact number chahiye hoga, taake "
+                 f"woh aap se rabta kar ke property ki details aur valuation discuss kar sakein.")
+
+    return {"agent_reply": reply, "conversation_history": _say(state, reply)}
+
+
+# ---------- 4b. Recommendation (LLM-chosen search args, validated against real data) ----------
+
+#
+# Day 2/4's design had search_property_tool called deterministically here,
+# fed straight from conversation_memory.py's regex-parsed slots. That meant
+# every area/city name customers might say had to exist in a hardcoded
+# Python alias dict (conversation_memory.py's area_aliases) - which drifted
+# out of sync with the real dataset (confirmed live: "Johar Town" and "DHA
+# Phase 2" existed in the actual properties table but not in that dict, in
+# EITHER script), and needed a parallel Urdu-script keyword list maintained
+# by hand for every area, forever.
+#
+# This node now gives the LLM search_property_tool itself as a callable
+# tool (the same generate_with_tools() pattern rag_node already uses to
+# choose between rag_search_tool/property_lookup_tool) instead of a plain
+# generate_reply() call - reusing the existing call, not adding a new one.
+# The model's tool-call arguments ARE the extracted entities. Read-only
+# search is safe to leave to the model for the same reason rag_node's tool
+# choice is (nodes.py's module docstring). What's NOT safe is trusting an
+# LLM-extracted city/area/property_type string outright - search_properties()
+# filters with a plain SQL `WHERE city = ?` (exact match, case-sensitive),
+# so a slightly-off value doesn't error, it just silently returns nothing.
+# _execute_search_property_tool validates against
+# structured_retrieval.get_distinct_cities()/get_distinct_areas()/
+# get_distinct_property_types() (real data, not a hardcoded list) before
+# ever calling the real tool, and corrects to the DB's exact canonical
+# spelling on a match. On no match, the customer is told the value isn't
+# recognized and asked to confirm - never silently dropped or guessed
+# (Task 4: "ask clarification instead of guessing").
+#
+# conversation_memory.py's regex-based slot parsing is NOT removed - it
+# still runs every turn in intent_detection_node (booking_node's required-
+# field checks depend on it, and it's the fallback here if both LLM
+# providers are down).
+
+_RECOMMENDATION_TOOLS = [search_property_tool]
+_RECOMMENDATION_TOOL_SCHEMAS = [convert_to_openai_tool(t) for t in _RECOMMENDATION_TOOLS]
+
+
+def _validate_categorical(value: Optional[str], valid_values: List[str]):
+    """Returns (corrected_value, unrecognized_original). Exact match, then
+    case-insensitive exact match, then a fuzzy pass for STT noise/spelling
+    drift (e.g. "Johar Twon"). On no match at all, returns (None, value) -
+    the original is preserved so the reply can tell the customer exactly
+    what wasn't recognized, rather than silently dropping it."""
+    if not value:
+        return None, None
+    if value in valid_values:
+        return value, None
+    lower_map = {v.lower(): v for v in valid_values}
+    if value.lower() in lower_map:
+        return lower_map[value.lower()], None
+    close = difflib.get_close_matches(value, valid_values, n=1, cutoff=0.6)
+    if close:
+        return close[0], None
+    return None, value
+
+
+# property_type is deterministically extracted and OVERRIDES whatever the
+# LLM's tool call passed - confirmed live, twice: prompting the model to
+# extract property_type (_recommendation_system_prompt's explicit mapping
+# instructions) was not reliable enough on its own. A customer saying
+# "اپارٹمنٹ چاہیے، گودام نہیں" (apartment please, NOT a warehouse) still
+# got warehouses recommended, meaning property_type was never actually
+# passed to the tool despite the instruction. Every other categorical
+# field (city/area) is LLM-extracted then validated; this one is
+# extracted deterministically and validated the same way, because getting
+# it wrong shows the customer a property type they explicitly excluded,
+# not just a slightly-off search - closer to a Task 4 guardrail than a
+# nice-to-have.
+_PROPERTY_TYPE_KEYWORDS = {
+    "apartment": ["apartment", "flat", "اپارٹمنٹ", "فلیٹ"],
+    "house": ["house", "ghar", "گھر"],
+    "warehouse": ["warehouse", "godown", "گودام"],
+    "office": ["office", "دفتر", "آفس"],
+    "plot": ["plot", "پلاٹ"],
+    "shop": ["shop", "dukan", "دکان"],
+}
+_NEGATION_WORDS = ["نہیں", "nahi", "not", "na "]
+
+
+def _detect_property_type(text: str) -> Optional[str]:
+    """Returns the first NON-negated property-type mention, in text order
+    - "گودام نہیں" (not a warehouse) is correctly skipped as an exclusion,
+    not returned as the answer, by checking a short window right after
+    each match for a negation word."""
+    lowered = text.lower()
+    candidates = []  # (property_type, position, is_negated)
+    for ptype, keywords in _PROPERTY_TYPE_KEYWORDS.items():
+        for kw in keywords:
+            idx = lowered.find(kw)
+            if idx == -1:
+                continue
+            window = lowered[idx + len(kw): idx + len(kw) + 15]
+            is_negated = any(neg in window for neg in _NEGATION_WORDS)
+            candidates.append((ptype, idx, is_negated))
+    positive = [c for c in candidates if not c[2]]
+    if positive:
+        return min(positive, key=lambda c: c[1])[0]
+    return None
+
 
 def _format_recommendation_reply(candidates: List[Dict[str, Any]]) -> str:
     """Deterministic fallback used only if BOTH LLM providers are down -
@@ -193,63 +448,176 @@ def _format_recommendation_reply(candidates: List[Dict[str, Any]]) -> str:
     return " ".join(parts)
 
 
-_RECOMMENDATION_SYSTEM_PROMPT = """You are Ali, a warm professional Pakistani real estate agent speaking UrduLish on a phone call.
-Rules: never invent prices/availability/amenities beyond what's listed below; if the customer raised an objection, acknowledge it before offering an alternative; never guarantee investment returns; always leave an easy exit ("no commitment needed"); reply under 80 words, plain spoken sentences, no markdown.
+def _recommendation_system_prompt(prefs: Dict[str, Any], objection: Optional[str],
+                                    strategy, decline_count: int) -> str:
+    known = ", ".join(f"{k}={v}" for k, v in {
+        "budget": prefs.get("budget"), "city": prefs.get("city"), "area": prefs.get("area"),
+        "bedrooms": prefs.get("bedrooms"), "purpose": prefs.get("purpose"),
+    }.items() if v) or "nothing captured yet"
 
-Candidates:
-{candidates}
+    stop_pushing_note = ""
+    if decline_count >= 2:
+        # system_prompt.md GUARDRAILS: "Do not continue pushing a sale if
+        # the customer has clearly declined twice." This is a phrasing
+        # instruction, not a routing decision - is_goodbye_turn() no
+        # longer ends the call over this (see its docstring for why that
+        # was wrong), so a customer who declined twice can still book,
+        # ask questions, or continue normally on a later turn - they just
+        # shouldn't be pitched more alternatives they didn't ask for.
+        stop_pushing_note = (
+            "\n\nThe customer has declined suggestions twice already this call. Do NOT "
+            "proactively suggest another alternative property unless they explicitly ask "
+            "for one. Instead, acknowledge warmly and ask what else you can help with, or "
+            "if there's nothing else, offer to end the call politely."
+        )
 
-Objection detected: {objection}
-Talking points for that objection (use these, don't invent your own): {talking_points}"""
+    return BASE_PROMPT + f"""
+
+You are recommending properties on THIS turn. You have ONE tool, search_property_tool -
+call it with whatever budget/city/area/bedrooms/purpose/property_type the customer has
+mentioned (in this turn or earlier in the conversation shown above), then phrase a natural
+reply using ONLY what the tool returns. Never invent prices/availability/amenities.
+
+property_type is one of: apartment, house, warehouse, office, plot, shop. ALWAYS pass it
+when the customer's words imply one, even loosely - "گھر"/"ghar" or "apartment"/"اپارٹمنٹ"
+-> house or apartment (pick apartment if they specifically said apartment, otherwise
+house), "دکان"/"shop" -> shop, "دفتر"/"office" -> office, "گودام"/"warehouse" -> warehouse,
+"پلاٹ"/"plot" -> plot. Never recommend a property type the customer didn't ask for (e.g.
+never show a warehouse to someone who asked for a house) - this is a hard rule, not a
+preference.
+
+If the customer raised an objection, acknowledge it before offering an alternative.
+Reply under 80 words, plain spoken sentences, no markdown.
+
+Known so far from earlier turns (a hint, not a hard requirement - override if this
+turn says something different): {known}{stop_pushing_note}
+
+If the tool result includes "unrecognized_fields", the customer mentioned a city/area/
+property type that is NOT in the database - do not proceed as if it were valid. Tell
+them clearly that specific value isn't available, offer 2-4 options from "valid_areas"/
+"valid_cities" in the tool result as alternatives, and ask them to confirm - do not give
+a firm recommendation for that field until they do.
+
+This is an ongoing phone call - the greeting has already happened earlier in the
+conversation shown above. Do not reintroduce yourself, re-greet, or restate who you are
+or what company this is. Reply as a natural continuation of the conversation, referencing
+what the customer already told you instead of asking them to repeat it.
+
+Objection detected: {objection or "none"}
+Talking points for that objection (use these, don't invent your own): {"; ".join(strategy.talking_points) if strategy else "none"}"""
 
 
 @traced_node("recommendation", annotate=lambda i, o: f"{len(o.get('tool_outputs', {}).get('last_recommendations', []) or [])} candidate(s)")
 def recommendation_node(state: AgentState) -> Dict[str, Any]:
-    """search_property_tool is called deterministically here (not an LLM
-    choice) - recommending always runs the same search given whatever
-    preferences are known, matching Day 4's /property-match endpoint. The
-    LLM (if reachable) only phrases the reply naturally and, when an
-    objection was detected this turn, folds in objection_handler.py's
-    strategy - it does not decide WHAT to recommend, only how to say it."""
     prefs = state["property_preferences"]
-    candidates = search_property_tool.invoke({
-        "budget": prefs.get("budget"), "city": prefs.get("city"), "area": prefs.get("area"),
-        "bedrooms": prefs.get("bedrooms"), "purpose": prefs.get("purpose"), "top_n": 3,
-    })
+    objection = state["intent"].get("objection")
+    strategy = build_strategy(objection, state["decline_count"]) if objection else None
+    system_prompt = _recommendation_system_prompt(prefs, objection, strategy, state["decline_count"])
 
-    if not candidates:
-        reply = ("Maazrat sir, abhi in requirements ke mutabiq koi property available nahi hai. "
-                 "Kya main budget ya area thora adjust kar ke dobara dekhoon?")
-        updated_prefs = prefs
-    else:
-        objection = state["intent"].get("objection")
-        strategy = build_strategy(objection, state["decline_count"]) if objection else None
-        candidates_text = "\n".join(
-            f"- {c['title']}: PKR {c['price_pkr']:,}, {c['bedrooms']} bedroom, {c['area']}, "
-            f"amenities: {c['amenities']}"
-            for c in candidates
-        )
-        system_prompt = _RECOMMENDATION_SYSTEM_PROMPT.format(
-            candidates=candidates_text, objection=objection or "none",
-            talking_points="; ".join(strategy.talking_points) if strategy else "none",
-        )
-        try:
-            reply = llm_client.generate_reply(system_prompt, state["customer_text"])
-        except RuntimeError:
-            reply = _format_recommendation_reply(candidates)
+    captured: Dict[str, Any] = {"candidates": None, "unresolved": {}}
 
-        updated_prefs = {
-            **prefs,
+    def _execute_search_property_tool(name: str, args: Dict[str, Any]) -> Any:
+        if name != "search_property_tool":
+            return {"error": f"unknown tool {name!r}"}
+        args = dict(args)
+
+        city_val, city_bad = _validate_categorical(args.get("city"), structured_retrieval.get_distinct_cities())
+        area_val, area_bad = _validate_categorical(args.get("area"), structured_retrieval.get_distinct_areas())
+
+        detected_type = _detect_property_type(state["customer_text"])
+        type_val, type_bad = _validate_categorical(
+            detected_type or args.get("property_type"), structured_retrieval.get_distinct_property_types())
+        args["city"], args["area"], args["property_type"] = city_val, area_val, type_val
+
+        if city_bad:
+            captured["unresolved"]["city"] = city_bad
+        if area_bad:
+            captured["unresolved"]["area"] = area_bad
+        if type_bad:
+            captured["unresolved"]["property_type"] = type_bad
+
+        results = search_property_tool.invoke(args)
+        captured["candidates"] = results
+        captured["validated_args"] = args
+        print(f"  [recommendation_node] search_property_tool called with "
+              f"{args} -> {len(results)} result(s)")
+
+        tool_result: Dict[str, Any] = {"results": results}
+        if captured["unresolved"]:
+            tool_result["unrecognized_fields"] = dict(captured["unresolved"])
+            tool_result["valid_cities"] = structured_retrieval.get_distinct_cities()
+            tool_result["valid_areas"] = structured_retrieval.get_distinct_areas()
+        return tool_result
+
+    try:
+        reply = llm_client.generate_with_tools(
+            system_prompt, state["customer_text"], _RECOMMENDATION_TOOL_SCHEMAS,
+            _execute_search_property_tool, history=_recent_history(state),
+        )
+        candidates = captured["candidates"] or []
+        validated = captured.get("validated_args", {})
+        if not reply or not reply.strip():
+            # generate_with_tools() did NOT raise here, but still produced
+            # nothing usable - confirmed live: when the primary times out,
+            # llm_client's Gemini fallback has NO tool access (see its own
+            # docstring), yet this node's system prompt assumes a tool call
+            # already happened ("phrase a reply using ONLY what the tool
+            # returns"). Gemini can't satisfy that instruction with no tool
+            # result to work from, and returned an empty string instead of
+            # raising - which is exactly the kind of silent failure that
+            # matters most here: live_voice_pipeline.py's mic loop treats
+            # `not reply` as "the call is over" and hangs up (confirmed
+            # live - no goodbye was said, the empty reply alone ended the
+            # call). Falling through to the same deterministic template
+            # used when both providers are fully down closes that gap -
+            # this reply must never be empty.
+            raise RuntimeError("generate_with_tools returned an empty reply")
+    except RuntimeError:
+        # both LLM providers fully down, OR the primary/Gemini path produced
+        # an empty reply above - fall back to the old deterministic path.
+        # Prefer results the tool-calling loop already fetched (the LLM may
+        # have successfully called search_property_tool before failing to
+        # produce final text) over re-running the search from scratch with
+        # conversation_memory.py's regex-parsed slots, which may be stale
+        # or less specific than what was just extracted this turn.
+        if captured["candidates"] is not None:
+            candidates = captured["candidates"]
+            validated = captured.get("validated_args", prefs)
+        else:
+            candidates = search_property_tool.invoke({
+                "budget": prefs.get("budget"), "city": prefs.get("city"), "area": prefs.get("area"),
+                "bedrooms": prefs.get("bedrooms"), "purpose": prefs.get("purpose"),
+                "property_type": prefs.get("property_type") or _detect_property_type(state["customer_text"]),
+                "top_n": 3,
+            })
+            validated = prefs
+        reply = _format_recommendation_reply(candidates) if candidates else (
+            "Maazrat sir, is waqt system thora slow hai. Aap apna budget aur area "
+            "dobara bata dijiye, main filhaal available options dekhta hoon.")
+
+    clarification_needed = bool(captured["unresolved"])
+    updated_prefs = dict(prefs)
+    for k, v in validated.items():
+        # only overwrite a known slot with a NEW non-None value - if this
+        # turn's tool call omitted city (because the customer didn't
+        # restate it, relying on the "known so far" hint instead), don't
+        # let that erase a city captured on an earlier turn
+        if k in prefs and v is not None:
+            updated_prefs[k] = v
+    if candidates:
+        updated_prefs.update({
             "last_shown_property_ids": [c["id"] for c in candidates],
             "last_shown_min_price": min(c["price_pkr"] for c in candidates),
             "last_shown_max_price": max(c["price_pkr"] for c in candidates),
-        }
+        })
 
     return {
         "agent_reply": reply,
         "conversation_history": _say(state, reply),
         "property_preferences": updated_prefs,
         "tool_outputs": {**state["tool_outputs"], "last_recommendations": candidates},
+        "clarification_needed": clarification_needed,
+        "missing_fields": list(captured["unresolved"].keys()),
     }
 
 
@@ -275,21 +643,42 @@ def booking_node(state: AgentState) -> Dict[str, Any]:
     must confirm the slot is free (never book an unavailable slot) - only
     then does book_calendar_tool run. Mirrors Day 4's appointment/prepare
     -> calendar/create split, now as validation-then-action inside one
-    node."""
+    node.
+
+    Handles two different meanings of "property" depending on who's
+    booking: a buyer/renter is booking a visit to see COMPANY inventory
+    (must resolve to a real row via last_shown_property_ids - Task 4:
+    never book a visit to a property that doesn't exist), while a seller
+    is booking a VALUATION visit for their OWN property, which was never
+    in the properties table to begin with - requiring a DB match for that
+    would make seller booking permanently impossible, since
+    last_shown_property_ids is only ever populated by recommendation_node,
+    which seller_inquiry calls never go through (see graph.py's routing)."""
     profile = state["user_profile"]
     prefs = state["property_preferences"]
     text = state["customer_text"]
+    is_seller = state["intent"].get("call_intent") == "seller_inquiry"
 
     parsed_dt = parse_appointment_datetime(text)
-    property_id = prefs["last_shown_property_ids"][0] if prefs.get("last_shown_property_ids") else None
-    property_info = structured_retrieval.get_property_by_id(property_id) if property_id else None
+
+    if is_seller:
+        descriptor = " ".join(p for p in [prefs.get("property_type"), prefs.get("area"), prefs.get("city")] if p)
+        property_info = {
+            "id": None,
+            "title": f"Property Valuation - {descriptor}" if descriptor else "Property Valuation Visit",
+        }
+    else:
+        property_id = prefs["last_shown_property_ids"][0] if prefs.get("last_shown_property_ids") else None
+        property_info = structured_retrieval.get_property_by_id(property_id) if property_id else None
 
     missing = []
     if not profile.get("client_name"):
         missing.append("client_name")
     if not profile.get("client_phone"):
         missing.append("client_phone")
-    if not property_info:
+    if not is_seller and not property_info:
+        # sellers never hit this - property_info is always a valid
+        # (possibly generic) descriptor dict for them, never None
         missing.append("property")
     if not parsed_dt:
         missing.append("date_time")
@@ -312,6 +701,8 @@ def booking_node(state: AgentState) -> Dict[str, Any]:
         "client_name": profile["client_name"], "client_phone": profile["client_phone"],
         "property_title": property_info["title"], "property_id": property_info["id"],
         "start_datetime_iso": parsed_dt.isoformat(),
+        **({"meeting_notes": "Seller valuation visit - customer offered this property for sale/listing"}
+           if is_seller else {}),
     })
 
     if not booking["success"]:
@@ -321,7 +712,9 @@ def booking_node(state: AgentState) -> Dict[str, Any]:
         return _write_action_update(state, "book", False, reply, clarification_needed=False)
 
     when = parsed_dt.strftime("%A, %d %B %Y at %I:%M %p")
-    reply = f"Ji bilkul sir, aap ki appointment {when} ke liye confirm ho gayi hai."
+    reply = (f"Ji bilkul sir, aap ki appointment {property_info['title']} ke liye {when} ko confirm ho gayi hai. "
+             f"Confirmation is number par bhejenge: {profile['client_phone']}. "
+             f"Agar yeh number sahi nahi hai toh abhi bata dijiye.")
     appointment_status = {
         "event_id": booking["event_id"], "property_title": property_info["title"],
         "property_id": property_info["id"], "start_datetime": parsed_dt.isoformat(),
@@ -460,7 +853,36 @@ def email_node(state: AgentState) -> Dict[str, Any]:
     }
 
 
-# ---------- 9. Goodbye ----------
+# ---------- 9. Escalation ----------
+
+_ESCALATION_REPLY = (
+    "Ji zaroor sir, main aap ko hamare senior agent se connect kar deta hoon jo "
+    "yeh behtar handle kar sakein. Wo jald hi aap se rabta karenge."
+)
+
+
+@traced_node("escalation", annotate=lambda i, o: "escalated to human agent")
+def escalation_node(state: AgentState) -> Dict[str, Any]:
+    """Day 1 ESCALATION RULES, the one node that never tries to resolve
+    anything itself: explicit human request (detect_escalation_request,
+    checked first by graph.py's router) or a real technical failure on a
+    write action (routed here by _route_after_write_action when a
+    booking/reschedule/cancel fails for a reason other than missing info or
+    an unavailable slot). Always logs the reason to CRM and tells the
+    customer clearly a human will follow up, per system_prompt.md."""
+    last_write = state["tool_outputs"].get("last_write_action", {})
+    reason = "customer_requested_human" if detect_escalation_request(state["customer_text"]) else (
+        f"technical_failure:{last_write.get('kind')}" if last_write and not last_write.get("success")
+        else "unresolved_after_multiple_attempts"
+    )
+    crm_log_tool.invoke({
+        "session_id": state["session_id"], "event_type": "escalated_to_human",
+        "payload": {"reason": reason}, "status": "escalated",
+    })
+    return {"agent_reply": _ESCALATION_REPLY, "conversation_history": _say(state, _ESCALATION_REPLY)}
+
+
+# ---------- 10. Goodbye ----------
 
 @traced_node("goodbye", annotate=lambda i, o: "call closed")
 def goodbye_node(state: AgentState) -> Dict[str, Any]:

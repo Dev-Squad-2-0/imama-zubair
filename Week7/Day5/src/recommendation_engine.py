@@ -46,8 +46,8 @@ def _amenity_match_score(property_amenities, wanted_amenities):
 
 
 def recommend_properties(budget=None, city=None, area=None, bedrooms=None,
-                          purpose=None, amenities=None, investment_goal=None,
-                          top_n=5):
+                          purpose=None, property_type=None, amenities=None,
+                          investment_goal=None, top_n=5):
     """
     investment_goal: optional string like "high_growth" or "stable", used to
     bias toward locations tagged with a rising price_trend when purpose is investment.
@@ -56,6 +56,7 @@ def recommend_properties(budget=None, city=None, area=None, bedrooms=None,
         city=city,
         area=area,
         purpose=purpose,
+        property_type=property_type,
         min_bedrooms=bedrooms,
         max_price=int(budget * 1.15) if budget else None,  # allow slight stretch, penalized in scoring
     )

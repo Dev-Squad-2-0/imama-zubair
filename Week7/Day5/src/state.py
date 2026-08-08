@@ -29,6 +29,17 @@ class AgentState(TypedDict, total=False):
     session_id: str
     turn_id: int
 
+    caller_id: Optional[str]                            # phone number from the TELEPHONY layer itself (e.g.
+                                                          # Twilio's "From" field) - NOT parsed from speech, so it's
+                                                          # available even if the customer never says a number out
+                                                          # loud, or STT mangles the digits. Not wired to a real
+                                                          # telephony provider yet (see voice_pipeline.py's
+                                                          # telephony_send_audio() docstring - same "not implemented,
+                                                          # here's exactly where it plugs in" status). Set via
+                                                          # graph.run_turn(..., caller_id=...); None for the current
+                                                          # mic-based live_voice_pipeline.py, which has no caller ID
+                                                          # source at all (it isn't a phone call).
+
     conversation_history: List[Dict[str, str]]        # [{"speaker": "customer"|"agent", "text": ...}]
     user_profile: Dict[str, Any]                        # client_name, client_phone
     property_preferences: Dict[str, Any]                # budget, city, area, bedrooms, purpose, property_type,
@@ -51,6 +62,7 @@ def new_agent_state(session_id: str) -> AgentState:
     return AgentState(
         session_id=session_id,
         turn_id=0,
+        caller_id=None,
         conversation_history=[],
         user_profile={"client_name": None, "client_phone": None},
         property_preferences={

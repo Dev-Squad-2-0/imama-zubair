@@ -1,0 +1,288 @@
+{
+  "run_id": "20260809-163314",
+  "task1_results": "C:\\Users\\PC\\Downloads\\Compressed\\day6messaround\\tests\\production_eval\\output\\evaluation_results.json",
+  "evaluation_db": null,
+  "property_db": "C:\\Users\\PC\\Downloads\\Compressed\\day6messaround\\db\\knowledge_base.db",
+  "metrics": {
+    "latency": {
+      "turn_count": 67,
+      "turn_latency_ms": {
+        "mean": 5751.78,
+        "median_p50": 193.19,
+        "p95": 11610.42,
+        "max": 58370.16,
+        "min": 23.45
+      },
+      "conversation_latency_ms": {
+        "mean": 8758.4,
+        "median_p50": 9112.68,
+        "p95": 22316.79,
+        "max": 69378.73
+      }
+    },
+    "conversation_success": {
+      "total": 44,
+      "successful": 42,
+      "failed": 2,
+      "success_rate_percent": 95.45,
+      "passed_scenarios": [
+        "buyer_01",
+        "buyer_02",
+        "buyer_03",
+        "buyer_04",
+        "buyer_05",
+        "seller_01",
+        "seller_02",
+        "seller_03",
+        "seller_04",
+        "investor_02",
+        "investor_03",
+        "investor_04",
+        "rental_01",
+        "rental_02",
+        "rental_03",
+        "rental_04",
+        "appt_01",
+        "appt_02",
+        "appt_03",
+        "appt_04",
+        "appt_05",
+        "cancel_01",
+        "cancel_02",
+        "cancel_03",
+        "resched_01",
+        "resched_02",
+        "resched_03",
+        "offtopic_01",
+        "offtopic_02",
+        "offtopic_03",
+        "inject_01",
+        "inject_02",
+        "inject_03",
+        "inject_04",
+        "inject_06",
+        "angry_01",
+        "angry_02",
+        "angry_03",
+        "angry_04",
+        "silent_01",
+        "silent_02",
+        "silent_03"
+      ],
+      "failed_scenarios": [
+        "investor_01",
+        "inject_05"
+      ]
+    },
+    "booking_success": {
+      "booking_tests": 4,
+      "successful_bookings": 4,
+      "failed_bookings": 0,
+      "booking_success_rate_percent": 100.0,
+      "passed_scenarios": [
+        "appt_01",
+        "appt_02",
+        "appt_03",
+        "appt_05"
+      ],
+      "failed_scenarios": []
+    },
+    "tool_failures": {
+      "tool_failures": 0,
+      "crm_event_rows_checked": 0,
+      "failure_rate_percent": null,
+      "failures": [],
+      "audit_warnings": []
+    },
+    "rag_accuracy": {
+      "cases": 10,
+      "correct": 10,
+      "incorrect": 0,
+      "rag_accuracy_percent": 100.0,
+      "top_k": 3,
+      "details": [
+        {
+          "document_id": "brochure_1",
+          "query": "2 Marla Apartment in Johar Town, Lahore Welcome to your next apartment in the heart of Johar Town,",
+          "expected_source": "brochure",
+          "expected_property_id": "1",
+          "passed": true,
+          "matched_rank": 1,
+          "best_text_overlap": 1.0
+        },
+        {
+          "document_id": "brochure_10",
+          "query": "2 Marla Apartment in Johar Town, Lahore Welcome to your next apartment in the heart of Johar Town,",
+          "expected_source": "brochure",
+          "expected_property_id": "10",
+          "passed": true,
+          "matched_rank": 2,
+          "best_text_overlap": 1.0
+        },
+        {
+          "document_id": "brochure_11",
+          "query": "1 Marla Warehouse in Bahadurabad, Karachi Welcome to your next warehouse in the heart of Bahadurabad, Karachi.",
+          "expected_source": "brochure",
+          "expected_property_id": "11",
+          "passed": true,
+          "matched_rank": 1,
+          "best_text_overlap": 1.0
+        },
+        {
+          "document_id": "brochure_12",
+          "query": "1 Marla Apartment in F-10, Islamabad Welcome to your next apartment in the heart of F-10, Islamabad.",
+          "expected_source": "brochure",
+          "expected_property_id": "12",
+          "passed": true,
+          "matched_rank": 1,
+          "best_text_overlap": 1.0
+        },
+        {
+          "document_id": "brochure_13",
+          "query": "1 Marla Apartment in Gulshan-e-Iqbal, Karachi Welcome to your next apartment in the heart of Gulshan-e-Iqbal, Karachi.",
+          "expected_source": "brochure",
+          "expected_property_id": "13",
+          "passed": true,
+          "matched_rank": 1,
+          "best_text_overlap": 1.0
+        },
+        {
+          "document_id": "brochure_14",
+          "query": "2 Marla Warehouse in DHA Phase 8, Karachi Welcome to your next warehouse in the heart of DHA",
+          "expected_source": "brochure",
+          "expected_property_id": "14",
+          "passed": true,
+          "matched_rank": 1,
+          "best_text_overlap": 1.0
+        },
+        {
+          "document_id": "brochure_15",
+          "query": "5 Marla Warehouse in Blue Area, Islamabad Welcome to your next warehouse in the heart of Blue Area,",
+          "expected_source": "brochure",
+          "expected_property_id": "15",
+          "passed": true,
+          "matched_rank": 1,
+          "best_text_overlap": 1.0
+        },
+        {
+          "document_id": "brochure_16",
+          "query": "2 Marla Office in DHA Phase 2, Islamabad Welcome to your next office in the heart of DHA",
+          "expected_source": "brochure",
+          "expected_property_id": "16",
+          "passed": true,
+          "matched_rank": 1,
+          "best_text_overlap": 1.0
+        },
+        {
+          "document_id": "brochure_17",
+          "query": "2 Marla Apartment in Bahria Town, Islamabad Welcome to your next apartment in the heart of Bahria Town,",
+          "expected_source": "brochure",
+          "expected_property_id": "17",
+          "passed": true,
+          "matched_rank": 1,
+          "best_text_overlap": 1.0
+        },
+        {
+          "document_id": "brochure_18",
+          "query": "5 Marla Office in Clifton, Karachi Welcome to your next office in the heart of Clifton, Karachi.",
+          "expected_source": "brochure",
+          "expected_property_id": "18",
+          "passed": true,
+          "matched_rank": 1,
+          "best_text_overlap": 1.0
+        }
+      ],
+      "method": "Ground-truth document retrieval hit-rate@K; no LLM judge."
+    },
+    "memory_accuracy": {
+      "memory_checks": 2,
+      "passed": 2,
+      "failed": 0,
+      "memory_accuracy_percent": 100.0,
+      "passed_checks": [
+        {
+          "scenario_id": "buyer_04",
+          "label": "second turn still routes to recommendation (memory carried budget/area)",
+          "status": "PASS",
+          "detail": null
+        },
+        {
+          "scenario_id": "resched_01",
+          "label": "sticky reschedule reaches node",
+          "status": "PASS",
+          "detail": null
+        }
+      ],
+      "failed_checks": []
+    },
+    "hallucination": {
+      "claims_checked": 10,
+      "supported_claims": 10,
+      "hallucinated_claims": 0,
+      "hallucination_rate_percent": 0.0,
+      "details": [
+        {
+          "scenario_id": "appt_01",
+          "type": "property_title",
+          "property": "2 Marla Apartment in DHA Phase 6, Lahore",
+          "status": "supported"
+        },
+        {
+          "scenario_id": "appt_02",
+          "type": "property_title",
+          "property": "2 Marla Apartment in DHA Phase 6, Lahore",
+          "status": "supported"
+        },
+        {
+          "scenario_id": "appt_02",
+          "type": "property_title",
+          "property": "1 Marla Apartment in DHA Phase 6, Lahore",
+          "status": "supported"
+        },
+        {
+          "scenario_id": "appt_02",
+          "type": "property_title",
+          "property": "2 Marla Apartment in DHA Phase 6, Lahore",
+          "status": "supported"
+        },
+        {
+          "scenario_id": "appt_03",
+          "type": "property_title",
+          "property": "2 Marla Apartment in DHA Phase 6, Lahore",
+          "status": "supported"
+        },
+        {
+          "scenario_id": "appt_05",
+          "type": "property_title",
+          "property": "7 Marla House in F-10, Islamabad",
+          "status": "supported"
+        },
+        {
+          "scenario_id": "cancel_01",
+          "type": "property_title",
+          "property": "2 Marla Apartment in DHA Phase 6, Lahore",
+          "status": "supported"
+        },
+        {
+          "scenario_id": "cancel_02",
+          "type": "property_title",
+          "property": "7 Marla House in F-10, Islamabad",
+          "status": "supported"
+        },
+        {
+          "scenario_id": "resched_01",
+          "type": "property_title",
+          "property": "2 Marla Apartment in DHA Phase 6, Lahore",
+          "status": "supported"
+        },
+        {
+          "scenario_id": "resched_02",
+          "type": "property_title",
+          "property": "7 Marla House in F-10, Islamabad",
+          "status": "supported"
+        }
+      ],
+      "scope_note": "Deterministic audit of structured property title/price/bedroom claims against SQLite ground truth."
+    }
+  }
+}

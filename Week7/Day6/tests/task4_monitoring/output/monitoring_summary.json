@@ -1,0 +1,37 @@
+{
+  "summary": {
+    "window_minutes": 1440,
+    "generated_at": "2026-08-09T16:40:14.385203",
+    "average_latency_ms": 4932.59,
+    "average_api_latency_ms": 676.82,
+    "turns_monitored": 303,
+    "voice_quality": {
+      "average_stt_confidence": null,
+      "average_tts_first_byte_ms": 895.74,
+      "tts_successful": 80,
+      "tts_total": 80,
+      "tts_success_rate_percent": 100.0
+    },
+    "api_failures": 0,
+    "calendar_failures": 0,
+    "email_failures": 0,
+    "booking_success": {
+      "successful": 5,
+      "failed": 0,
+      "attempts": 5,
+      "rate_percent": 100.0
+    },
+    "rag": {
+      "queries": 4,
+      "misses": 0,
+      "miss_rate_percent": 0.0
+    },
+    "rag_misses": 0,
+    "appointment_activity": {
+      "booked": 5,
+      "rescheduled": 1,
+      "cancelled": 1
+    }
+  },
+  "recent_failures": []
+}

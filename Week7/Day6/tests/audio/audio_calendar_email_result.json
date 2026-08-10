@@ -1,0 +1,167 @@
+{
+  "session_id": "audio-google-e2e-20260808144555",
+  "profile_audio": "C:\\Users\\PC\\Downloads\\Compressed\\day6messaround\\tests\\audio\\input\\turn_01.mp3",
+  "booking_audio": "C:\\Users\\PC\\Downloads\\Compressed\\day6messaround\\tests\\audio\\input\\turn_06.mp3",
+  "employee_email": "imamazubair@gmail.com",
+  "profile_transcript": "میرا نام امامہ ہے میرا بیجر ٹین کروڑ ہے مجھے ڈی ایچ ایف اس سسٹم ہے گھر چاہیے",
+  "booking_transcript": "ایچ اے فیز سکٹ کی اپوائنٹمنٹ بک کر دین",
+  "profile_stt_ms": 5031,
+  "booking_stt_ms": 3110,
+  "agent_tts": {
+    "reply_text": "Ji bilkul sir, aap ki appointment 2 Marla Apartment in Johar Town, Lahore ke liye Sunday, 16 August 2026 at 02:00 PM ko confirm ho gayi hai. Confirmation aur appointment details aap ko bhej di jayengi.",
+    "audio_path": "C:\\Users\\PC\\Downloads\\Compressed\\day6messaround\\tests\\audio\\output\\agent_reply_audio-google-e2e-20260808144555.mp3",
+    "text_path": "C:\\Users\\PC\\Downloads\\Compressed\\day6messaround\\tests\\audio\\output\\agent_reply_audio-google-e2e-20260808144555.txt",
+    "first_byte_latency_ms": 1438,
+    "bytes": 270000
+  },
+  "crm_customer": {
+    "client_phone": "03001112222",
+    "client_name": "امامہ",
+    "budget": 30000000,
+    "city": null,
+    "area": "DHA Phase 6",
+    "bedrooms": null,
+    "property_type": null,
+    "purpose": "investment",
+    "last_session_id": "audio-google-e2e-20260808144555",
+    "updated_at": "2026-08-08T14:46:07.669008"
+  },
+  "calendar_event": {
+    "id": "1m3uprg4gnnnjph38r951uecv0",
+    "summary": "Property Visit: امامہ - 2 Marla Apartment in Johar Town, Lahore",
+    "htmlLink": "https://www.google.com/calendar/event?eid=MW0zdXByZzRnbm5uanBoMzhyOTUxdWVjdjAgaW1hbWF6dWJhaXJAbQ",
+    "start": {
+      "dateTime": "2026-08-16T14:00:00+05:00",
+      "timeZone": "Asia/Karachi"
+    },
+    "end": {
+      "dateTime": "2026-08-16T14:30:00+05:00",
+      "timeZone": "Asia/Karachi"
+    },
+    "attendees": [
+      "imamazubair@gmail.com"
+    ]
+  },
+  "appointment_status": {
+    "event_id": "1m3uprg4gnnnjph38r951uecv0",
+    "property_title": "2 Marla Apartment in Johar Town, Lahore",
+    "property_id": 1,
+    "start_datetime": "2026-08-16T14:00:00",
+    "employee_name": "RealEstate Hub Agent",
+    "employee_email": null,
+    "status": "booked"
+  },
+  "email_result": {
+    "success": true,
+    "message_id": "19fe0c407b55e24c",
+    "error": null
+  },
+  "trace": [
+    "intent_detection",
+    "booking",
+    "email"
+  ],
+  "agent_reply": "Ji bilkul sir, aap ki appointment 2 Marla Apartment in Johar Town, Lahore ke liye Sunday, 16 August 2026 at 02:00 PM ko confirm ho gayi hai. Confirmation aur appointment details aap ko bhej di jayengi.",
+  "checks": [
+    {
+      "label": "Deepgram produced the profile transcript",
+      "status": "PASS",
+      "detail": null
+    },
+    {
+      "label": "Deepgram produced the booking transcript",
+      "status": "PASS",
+      "detail": null
+    },
+    {
+      "label": "caller phone stored from telephony metadata",
+      "status": "PASS",
+      "detail": "03001112222"
+    },
+    {
+      "label": "customer name extracted from audio",
+      "status": "PASS",
+      "detail": "امامہ"
+    },
+    {
+      "label": "area extracted from audio",
+      "status": "FAIL",
+      "detail": null
+    },
+    {
+      "label": "budget extracted from audio",
+      "status": "FAIL",
+      "detail": null
+    },
+    {
+      "label": "selected property is really available",
+      "status": "PASS",
+      "detail": null
+    },
+    {
+      "label": "Fish Audio produced TTS bytes",
+      "status": "PASS",
+      "detail": null
+    },
+    {
+      "label": "agent reply MP3 was written",
+      "status": "PASS",
+      "detail": "C:\\Users\\PC\\Downloads\\Compressed\\day6messaround\\tests\\audio\\output\\agent_reply_audio-google-e2e-20260808144555.mp3"
+    },
+    {
+      "label": "LangGraph routed through booking node",
+      "status": "PASS",
+      "detail": null
+    },
+    {
+      "label": "LangGraph retained caller phone in user_profile",
+      "status": "PASS",
+      "detail": "03001112222"
+    },
+    {
+      "label": "CRM saved user info under the telephony caller phone",
+      "status": "PASS",
+      "detail": "03001112222"
+    },
+    {
+      "label": "LangGraph routed through email node",
+      "status": "PASS",
+      "detail": null
+    },
+    {
+      "label": "Calendar booking returned a real event_id",
+      "status": "PASS",
+      "detail": "1m3uprg4gnnnjph38r951uecv0"
+    },
+    {
+      "label": "appointment state is booked",
+      "status": "PASS",
+      "detail": "booked"
+    },
+    {
+      "label": "Gmail send reported success",
+      "status": "PASS",
+      "detail": null
+    },
+    {
+      "label": "Gmail returned a real message_id",
+      "status": "PASS",
+      "detail": "19fe0c407b55e24c"
+    },
+    {
+      "label": "event can be fetched back from Google Calendar",
+      "status": "PASS",
+      "detail": null
+    },
+    {
+      "label": "calendar event contains the customer name",
+      "status": "PASS",
+      "detail": null
+    },
+    {
+      "label": "employee email is attached to the Calendar event",
+      "status": "PASS",
+      "detail": "imamazubair@gmail.com"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+services:
+  voice-agent-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    image: realestate-voice-agent:local
+
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 20s
+
+    env_file:
+      - .env
+
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      PORT: 8000
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
+
+    ports:
+      - "${HOST_PORT:-8000}:8000"
+
+    volumes:
+      # Persist CRM, monitoring metrics, and Chroma.
+      - ./db:/app/db
+
+      # If Google Calendar/Gmail uses a credentials file, uncomment and set:
+      # GOOGLE_CREDENTIALS_PATH=credentials.json
+      #
+      - ./credentials.json:/run/secrets/google_credentials.json:ro
+
+    healthcheck:
+      test: ["CMD", "python", "scripts/healthcheck.py"]
+      interval: 30s
+      timeout: 7s
+      start_period: 45s
+      retries: 3

@@ -1,0 +1,199 @@
+{
+  "session_id": "audio-workflow-test-20260808092204",
+  "results": [
+    {
+      "turn_id": "turn_01",
+      "audio_in": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\input\\turn_01.mp3",
+      "transcript": "میرا نام امامہ ہے میرا بیجر ٹین کروڑ ہے مجھے ڈی ایچ ایف اس سسٹم ہے گھر چاہیے",
+      "stt_ms": 6485,
+      "turn_ms": 16795,
+      "reply": "Bas do minute dijiye, main details nikaal raha hoon aap ke liye. Ji bilkul, in options mein se dekh lijiye: 2 Marla Apartment in Johar Town, Lahore, taqreeban 0.83 crore, 3 bedroom. 3 Marla Apartment in F-10, Islamabad, taqreeban 1.66 crore, 2 bedroom. 12 Marla House in DHA Phase 2, Islamabad, taqreeban 2.06 crore, 5 bedroom. Kya in mein se koi appointment ke liye theek lagta hai?",
+      "trace": [
+        {
+          "node": "intent_detection",
+          "duration_ms": 31
+        },
+        {
+          "node": "recommendation",
+          "duration_ms": 16562
+        }
+      ],
+      "audio_out": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\output\\turn_01_agent_reply.mp3",
+      "tts_ms": 1875
+    },
+    {
+      "turn_id": "turn_02",
+      "audio_in": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\input\\turn_02.mp3",
+      "transcript": "نہیں",
+      "stt_ms": 4672,
+      "turn_ms": 9186,
+      "reply": "Hmm... Zara rukiye, main confirm kar ke batata hoon. Ji bilkul, in options mein se dekh lijiye: 2 Marla Apartment in Johar Town, Lahore, taqreeban 0.83 crore, 3 bedroom. 3 Marla Apartment in F-10, Islamabad, taqreeban 1.66 crore, 2 bedroom. 12 Marla House in DHA Phase 2, Islamabad, taqreeban 2.06 crore, 5 bedroom. Kya in mein se koi appointment ke liye theek lagta hai?",
+      "trace": [
+        {
+          "node": "intent_detection",
+          "duration_ms": 0
+        },
+        {
+          "node": "recommendation",
+          "duration_ms": 9125
+        }
+      ],
+      "audio_out": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\output\\turn_02_agent_reply.mp3",
+      "tts_ms": 1719
+    },
+    {
+      "turn_id": "turn_03",
+      "audio_in": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\input\\turn_03.mp3",
+      "transcript": "نہ ہی ابھی نہیں چاہیے",
+      "stt_ms": 7530,
+      "turn_ms": 9250,
+      "reply": "Acha... Bas do minute dijiye, main details nikaal raha hoon aap ke liye. Ji bilkul, in options mein se dekh lijiye: 2 Marla Apartment in Johar Town, Lahore, taqreeban 0.83 crore, 3 bedroom. 3 Marla Apartment in F-10, Islamabad, taqreeban 1.66 crore, 2 bedroom. 12 Marla House in DHA Phase 2, Islamabad, taqreeban 2.06 crore, 5 bedroom. Kya in mein se koi appointment ke liye theek lagta hai?",
+      "trace": [
+        {
+          "node": "intent_detection",
+          "duration_ms": 0
+        },
+        {
+          "node": "recommendation",
+          "duration_ms": 9171
+        }
+      ],
+      "audio_out": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\output\\turn_03_agent_reply.mp3",
+      "tts_ms": 1907
+    },
+    {
+      "turn_id": "turn_04",
+      "audio_in": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\input\\turn_04.mp3",
+      "transcript": "ڈی اے ایچ اے فیز سینسر نے کیا سہولیات ہیں",
+      "stt_ms": 3344,
+      "turn_ms": 8610,
+      "reply": "Dekhiye... Ek second sir, main abhi availability check kar leta hoon. Maazrat sir, is waqt yeh maloomat nikalne mein masla ho raha hai, thori dair baad dobara poochein.",
+      "trace": [
+        {
+          "node": "intent_detection",
+          "duration_ms": 30
+        },
+        {
+          "node": "rag",
+          "duration_ms": 8530
+        }
+      ],
+      "audio_out": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\output\\turn_04_agent_reply.mp3",
+      "tts_ms": 1670
+    },
+    {
+      "turn_id": "turn_05",
+      "audio_in": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\input\\turn_05.mp3",
+      "transcript": "ماہنگا ہے",
+      "stt_ms": 3030,
+      "turn_ms": 9297,
+      "reply": "Bas do minute dijiye, main details nikaal raha hoon aap ke liye. Ji bilkul, in options mein se dekh lijiye: 2 Marla Apartment in Johar Town, Lahore, taqreeban 0.83 crore, 3 bedroom. 3 Marla Apartment in F-10, Islamabad, taqreeban 1.66 crore, 2 bedroom. 12 Marla House in DHA Phase 2, Islamabad, taqreeban 2.06 crore, 5 bedroom. Kya in mein se koi appointment ke liye theek lagta hai?",
+      "trace": [
+        {
+          "node": "intent_detection",
+          "duration_ms": 0
+        },
+        {
+          "node": "recommendation",
+          "duration_ms": 9250
+        }
+      ],
+      "audio_out": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\output\\turn_05_agent_reply.mp3",
+      "tts_ms": 2500
+    },
+    {
+      "turn_id": "turn_06",
+      "audio_in": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\input\\turn_06.mp3",
+      "transcript": "ایچ اے فیز سکٹ کی اپوائنٹمنٹ بک کر دین",
+      "stt_ms": 3265,
+      "turn_ms": 78,
+      "reply": "Ji zaroor, appointment book karne se pehle bas aap ka contact number, kaunsa din aur waqt suit karega bata dijiye.",
+      "trace": [
+        {
+          "node": "intent_detection",
+          "duration_ms": 14
+        },
+        {
+          "node": "booking",
+          "duration_ms": 15
+        }
+      ],
+      "audio_out": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\output\\turn_06_agent_reply.mp3",
+      "tts_ms": 1921
+    },
+    {
+      "turn_id": "turn_07",
+      "audio_in": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\input\\turn_07.mp3",
+      "transcript": "میجھے کراچی کے لیفٹیننٹ ایریا میں پراپرٹی چاہیے",
+      "stt_ms": 2890,
+      "turn_ms": 9375,
+      "reply": "Zara rukiye, main confirm kar ke batata hoon. Ji bilkul, in options mein se dekh lijiye: 1 Marla Apartment in Bahadurabad, Karachi, taqreeban 0.00 crore, 2 bedroom. 1 Marla Warehouse in Bahadurabad, Karachi, taqreeban 0.23 crore, 0 bedroom. 1 Marla Apartment in Gulshan-e-Iqbal, Karachi, taqreeban 0.00 crore, 3 bedroom. Kya in mein se koi appointment ke liye theek lagta hai?",
+      "trace": [
+        {
+          "node": "intent_detection",
+          "duration_ms": 30
+        },
+        {
+          "node": "recommendation",
+          "duration_ms": 9250
+        }
+      ],
+      "audio_out": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\output\\turn_07_agent_reply.mp3",
+      "tts_ms": 1764
+    },
+    {
+      "turn_id": "turn_08",
+      "audio_in": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\input\\turn_08.mp3",
+      "transcript": "شکریہ خدا حافظ",
+      "stt_ms": 3389,
+      "turn_ms": 63,
+      "reply": "Shukriya sir, aap ka waqt dene ke liye. Allah Hafiz, aur zaroorat par hum yahan hain.",
+      "trace": [
+        {
+          "node": "intent_detection",
+          "duration_ms": 16
+        },
+        {
+          "node": "goodbye",
+          "duration_ms": 0
+        }
+      ],
+      "audio_out": "E:\\repos\\NETIXSOL\\imama-zubair\\Week7\\FINAL DAY 5 HOPEFULLY\\tests\\audio\\output\\turn_08_agent_reply.mp3",
+      "tts_ms": 1719
+    }
+  ],
+  "checks": [
+    {
+      "label": "turn_02: نہیں registered as a decline (decline_count >= 1)",
+      "status": "PASS"
+    },
+    {
+      "label": "turn_03: second decline reached the 2-decline threshold",
+      "status": "PASS"
+    },
+    {
+      "label": "turn_04: native-script factual question routed to rag, not recommendation",
+      "status": "PASS"
+    },
+    {
+      "label": "turn_05: price objection detected (native script)",
+      "status": "PASS"
+    },
+    {
+      "label": "turn_06: native-script booking phrase routed to booking (the exact bug this session found and fixed)",
+      "status": "PASS"
+    },
+    {
+      "label": "turn_07: unrecognized area triggered clarification_needed (asks instead of silently guessing)",
+      "status": "FAIL"
+    },
+    {
+      "label": "turn_07: reply does not silently proceed with a firm recommendation",
+      "status": "PASS"
+    },
+    {
+      "label": "turn_08: goodbye routed to goodbye node and ended the call",
+      "status": "PASS"
+    }
+  ]
+}

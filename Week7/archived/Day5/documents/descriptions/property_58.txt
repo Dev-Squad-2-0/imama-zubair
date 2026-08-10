@@ -1,9 +1,0 @@
-Property ID: 58
-Type: apartment
-Purpose: investment
-Location: Clifton, Karachi
-Size: 1 marla
-Bedrooms: 2, Bathrooms: 2
-Status: available
-Amenities: Shopping Mall Access, Wide Roads, 24/7 Security, Swimming Pool, Mosque, Solar Panels
-This property is located in Clifton, an area known for good access to schools and hospitals. The surrounding neighborhood has a mix of residential and commercial activity, making it convenient for daily errands. Public transport and main roads are within easy reach.

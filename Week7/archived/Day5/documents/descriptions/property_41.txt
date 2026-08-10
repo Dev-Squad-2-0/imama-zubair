@@ -1,9 +1,0 @@
-Property ID: 41
-Type: warehouse
-Purpose: commercial
-Location: Gulshan-e-Iqbal, Karachi
-Size: 1 marla
-Bedrooms: 0, Bathrooms: 0
-Status: sold
-Amenities: Wide Roads, Covered Parking, Swimming Pool, Solar Panels, Shopping Mall Access, Kids Play Area
-This property is located in Gulshan-e-Iqbal, an area known for good access to schools and hospitals. The surrounding neighborhood has a mix of residential and commercial activity, making it convenient for daily errands. Public transport and main roads are within easy reach.

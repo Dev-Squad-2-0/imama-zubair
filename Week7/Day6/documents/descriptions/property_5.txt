@@ -1,0 +1,9 @@
+Property ID: 5
+Type: apartment
+Purpose: investment
+Location: DHA Phase 8, Karachi
+Size: 2 marla
+Bedrooms: 3, Bathrooms: 3
+Status: sold
+Amenities: Swimming Pool, 24/7 Security, Kids Play Area, Covered Parking, Shopping Mall Access
+This property is located in DHA Phase 8, an area known for good access to schools and hospitals. The surrounding neighborhood has a mix of residential and commercial activity, making it convenient for daily errands. Public transport and main roads are within easy reach.

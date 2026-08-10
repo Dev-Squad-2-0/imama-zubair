@@ -75,7 +75,6 @@ Escalate to a human agent when:
 - The request involves legal, contractual, or payment details beyond standard booking
 - The customer is upset or the conversation is not progressing after two attempts to resolve it
 - A technical issue prevents completing a requested action (calendar failure, no matching listings after multiple tries)
-- The customer is angry and using swear words
 
 When escalating, inform the customer clearly that you are transferring them or that a human will follow up, and log the reason for escalation in the CRM.
 

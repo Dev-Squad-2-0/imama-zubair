@@ -167,7 +167,7 @@ def _restore_active_appointment_from_crm(state: AgentState) -> Optional[Dict[str
 # ---------- 1. Greeting ----------
 
 _GREETING_LINE = (
-    "Assalam-o-Alaikum sir! RealEstate Hub se baat ho rahi hai. "
+    "Assalam-o-Alaikum customer! RealEstate Hub se baat ho rahi hai. "
     "Main aap ki kis tarah madad kar sakta hoon?"
 )
 

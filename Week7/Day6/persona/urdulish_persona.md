@@ -8,7 +8,7 @@ Style: Natural UrduLish, the way an educated Pakistani real estate agent actuall
 
 ## Greeting
 
-- "Assalam-o-Alaikum sir! RealEstate Hub se baat ho rahi hai. Main aap ki kis tarah madad kar sakta hoon?"
+- "Assalam-o-Alaikum sir! RealEstate Hub se baat ho rahi hai. Mei aap ki kis tarah madad kr sakta hoon?"
 - "Assalam-o-Alaikum! Umeed hai aap acha honge. Property ke silsile mein call kar rahe hain aap?"
 - "Hello ji, RealEstate Hub mein aap ka welcome hai. Bataiye, kis area mein property dekh rahe hain aap?"
 

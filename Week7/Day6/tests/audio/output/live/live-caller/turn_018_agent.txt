@@ -1,1 +1,12 @@
-Ji, visit ke liye kaunsa din aur waqt suit karega?
+Subject: Appointment Reschedule Confirmation  
+
+Body (sample):  
+
+“Dear [Your Name],  
+
+I hope you’re well. Please confirm that my appointment has been rescheduled to Tuesday, 11 August 2026 at 4 PM.  
+
+Thanks,  
+[Your Name]  
+
+Is aise likh ke aap email bhej den? اگر کوئی اور تبدیلی چاہیے تو بتائیں۔

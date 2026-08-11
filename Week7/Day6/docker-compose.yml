@@ -24,11 +24,12 @@ services:
     volumes:
       # Persist CRM, monitoring metrics, and Chroma.
       - ./db:/app/db
+      - ./secrets:/app/secrets
 
       # If Google Calendar/Gmail uses a credentials file, uncomment and set:
       # GOOGLE_CREDENTIALS_PATH=credentials.json
       #
-      - ./credentials.json:/run/secrets/google_credentials.json:ro
+      # - ./credentials.json:/run/secrets/google_credentials.json:ro
 
     healthcheck:
       test: ["CMD", "python", "scripts/healthcheck.py"]

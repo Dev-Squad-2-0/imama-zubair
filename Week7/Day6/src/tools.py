@@ -116,17 +116,18 @@ def email_tool(kind: str, client_name: str, client_phone: str, property_title: s
                 start_datetime_iso: str, property_id: Optional[int] = None,
                 requirements_text: str = "", employee_name: str = "RealEstate Hub Agent",
                 employee_email: Optional[str] = None, old_start_datetime_iso: Optional[str] = None,
-                reason: str = "") -> Dict[str, Any]:
-    """Sends the assigned employee an email notification. kind must be one
-    of "book", "reschedule", "cancel" - same contract as Day 4's api.py
-    /email/notify endpoint."""
+                reason: str = "", client_email: Optional[str] = None) -> Dict[str, Any]:
+    """Sends the assigned employee an email notification (and optionally
+    a confirmation copy to the customer if client_email is provided).
+    kind must be one of "book", "reschedule", "cancel"."""
     details = cal.AppointmentDetails(
         client_name=client_name, client_phone=client_phone, property_title=property_title,
         property_id=property_id, start_datetime=datetime.fromisoformat(start_datetime_iso),
         employee_name=employee_name, employee_email=employee_email,
     )
     if kind == "book":
-        result = mailer.send_appointment_notification(details, requirements_text)
+        result = mailer.send_appointment_notification(details, requirements_text,
+                                                      client_email=client_email)
     elif kind == "reschedule":
         old_start = (
             datetime.fromisoformat(old_start_datetime_iso) if old_start_datetime_iso else details.start_datetime

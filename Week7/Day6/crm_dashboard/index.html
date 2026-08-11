@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RealEstate Hub CRM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://unpkg.com/lucide@latest/dist/lucide.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i data-lucide="building-2"></i>
+                <h2>RE Hub CRM</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" data-target="dashboard">
+                    <i data-lucide="layout-dashboard"></i> Dashboard
+                </button>
+                <button class="nav-btn" data-target="clients">
+                    <i data-lucide="users"></i> Clients
+                </button>
+                <button class="nav-btn" data-target="appointments">
+                    <i data-lucide="calendar"></i> Appointments
+                </button>
+                <button class="nav-btn" data-target="events">
+                    <i data-lucide="activity"></i> Events Trail
+                </button>
+                <button class="nav-btn" data-target="reminders">
+                    <i data-lucide="bell"></i> Reminders
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="topbar">
+                <h1 id="page-title">Dashboard Overview</h1>
+                <div class="topbar-actions">
+                    <button class="refresh-btn" id="refresh-btn">
+                        <i data-lucide="refresh-cw"></i> Refresh
+                    </button>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <!-- Dashboard View -->
+                <section id="dashboard" class="view active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon clients"><i data-lucide="users"></i></div>
+                            <div class="stat-info">
+                                <h3>Total Clients</h3>
+                                <p id="stat-clients">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon appointments"><i data-lucide="calendar"></i></div>
+                            <div class="stat-info">
+                                <h3>Appointments</h3>
+                                <p id="stat-appointments">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon reminders"><i data-lucide="bell"></i></div>
+                            <div class="stat-info">
+                                <h3>Pending Reminders</h3>
+                                <p id="stat-reminders">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon events"><i data-lucide="activity"></i></div>
+                            <div class="stat-info">
+                                <h3>Recent Events</h3>
+                                <p id="stat-events">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dashboard-widgets">
+                        <div class="widget">
+                            <h3>Recent Appointments</h3>
+                            <div class="table-container">
+                                <table id="dash-appointments-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Client</th>
+                                            <th>Property</th>
+                                            <th>Date</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="widget">
+                            <h3>Recent Events</h3>
+                            <div class="table-container">
+                                <table id="dash-events-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Event Type</th>
+                                            <th>Time</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Clients View -->
+                <section id="clients" class="view">
+                    <div class="card">
+                        <div class="table-container">
+                            <table id="clients-table">
+                                <thead>
+                                    <tr>
+                                        <th>Phone</th>
+                                        <th>Name</th>
+                                        <th>Budget</th>
+                                        <th>City / Area</th>
+                                        <th>Purpose</th>
+                                        <th>Updated At</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Appointments View -->
+                <section id="appointments" class="view">
+                    <div class="card">
+                        <div class="table-container">
+                            <table id="appointments-table">
+                                <thead>
+                                    <tr>
+                                        <th>Client</th>
+                                        <th>Phone</th>
+                                        <th>Property</th>
+                                        <th>Date/Time</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Events View -->
+                <section id="events" class="view">
+                    <div class="card">
+                        <div class="table-container">
+                            <table id="events-table">
+                                <thead>
+                                    <tr>
+                                        <th>Session ID</th>
+                                        <th>Event Type</th>
+                                        <th>Status</th>
+                                        <th>Time</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Reminders View -->
+                <section id="reminders" class="view">
+                    <div class="card">
+                        <div class="table-container">
+                            <table id="reminders-table">
+                                <thead>
+                                    <tr>
+                                        <th>Client</th>
+                                        <th>Reason</th>
+                                        <th>Due At</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Client Detail Modal -->
+                <div class="modal" id="client-modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h2 id="modal-client-name">Client Details</h2>
+                            <button class="close-btn" id="close-modal"><i data-lucide="x"></i></button>
+                        </div>
+                        <div class="modal-body" id="modal-body">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="app.js"></script>
+</body>
+</html>

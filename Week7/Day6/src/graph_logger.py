@@ -151,7 +151,10 @@ def traced_node(name: str, annotate: Optional[Callable[[Dict, Dict], str]] = Non
             line = f"  <- [{session_id}] exiting node: {name} ({duration_ms}ms)"
             if note:
                 line += f" - {note}"
-            print(line)
+            try:
+                print(line)
+            except UnicodeEncodeError:
+                print(line.encode("ascii", "replace").decode("ascii"))
 
             update = dict(update)
             update["node_trace"] = trace_so_far + [name]

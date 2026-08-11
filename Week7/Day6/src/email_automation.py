@@ -119,7 +119,9 @@ def build_requirements_summary(memory) -> str:
     return "\n".join(lines) if lines else "No specific requirements captured on the call."
 
 
-def _build_email_body(details: AppointmentDetails, requirements_text: str) -> str:
+def _build_email_body(details: AppointmentDetails, requirements_text: str,
+                       client_email: Optional[str] = None) -> str:
+    client_email_line = f"  Email: {client_email}\n" if client_email else ""
     return (
         f"New appointment booked via the RealEstate Hub voice agent.\n\n"
         f"Meeting Time: {details.start_datetime.strftime('%A, %d %B %Y at %I:%M %p')}\n"
@@ -128,34 +130,38 @@ def _build_email_body(details: AppointmentDetails, requirements_text: str) -> st
         + "\n\n"
         f"Client Details:\n"
         f"  Name: {details.client_name}\n"
-        f"  Phone: {details.client_phone}\n\n"
-        f"Client Requirements:\n{requirements_text}\n\n"
+        f"  Phone: {details.client_phone}\n"
+        + client_email_line
+        + f"\nClient Requirements:\n{requirements_text}\n\n"
         f"Meeting Notes:\n{details.meeting_notes or 'None provided'}\n\n"
         f"This is an automated notification, no reply needed."
     )
 
 
 def send_appointment_notification(details: AppointmentDetails, requirements_text: str,
-                                   to_email: Optional[str] = None) -> EmailResult:
+                                   to_email: Optional[str] = None,
+                                   client_email: Optional[str] = None) -> EmailResult:
     """Sends the assigned employee an email with meeting time, property,
-    client details, and requirements. to_email defaults to
-    details.employee_email, falling back to EMPLOYEE_EMAIL from .env —
-    same fallback order calendar_integration.create_appointment_event()
-    uses for the calendar invite, so the two stay consistent about who's
-    considered "the assigned employee" for a given booking."""
+    client details, and requirements. If client_email is given, the same
+    notification is also sent to the customer as a confirmation copy."""
     recipient = to_email or details.employee_email or EMPLOYEE_EMAIL
 
-    if not recipient:
+    if not recipient and not client_email:
         return EmailResult(
             success=False,
-            error="No employee email available (not passed in, not set on details, "
-                  "and EMPLOYEE_EMAIL is not set in .env)",
+            error="No email address available (employee or customer)",
         )
 
-    body = _build_email_body(details, requirements_text)
+    body = _build_email_body(details, requirements_text, client_email=client_email)
+    subject = f"New Appointment: {details.client_name} - {details.property_title}"
+
+    # Collect all recipients: employee (if set) + customer (if provided)
+    recipients = [r for r in [recipient, client_email] if r]
+    to_field = ", ".join(recipients)
+
     message = MIMEText(body)
-    message["to"] = recipient
-    message["subject"] = f"New Appointment: {details.client_name} - {details.property_title}"
+    message["to"] = to_field
+    message["subject"] = subject
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
     try:

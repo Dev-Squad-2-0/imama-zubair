@@ -19,8 +19,17 @@ from typing import Optional
 # to Roman letters - a plain Roman "book kar" pattern can never match that.
 _CANCEL_KEYWORDS = [
     "cancel kar", "cancel ker", "appointment cancel", "visit cancel",
-    "cancel karna", "cancel krna", "nahi aana ab", "appointment khatam",
-    "کینسل کر", "اپوائنٹمنٹ کینسل", "وزٹ کینسل", "اب نہیں آنا", "اپوائنٹمنٹ ختم",
+    "cancel karna", "cancel krna", "cancel karni", "cancel kerni",
+    "nahi aana ab", "appointment khatam",
+    # Native Urdu-script variants. Deepgram STT renders the English loanword
+    # "cancel" with BOTH ye (ی) and aleph (ا): "کینسل" and "کانسل" are both
+    # observed in live calls - only having one silently misses the other.
+    "کینسل کر", "کینسل کرنا", "کینسل کرنی",   # ye-variant (ی)
+    "کانسل کر", "کانسل کرنا", "کانسل کرنی",   # aleph-variant (ا)
+    "کنسل کر", "کنسل کرنا", "کنسل کرنی",      # short vowel-less variant
+    "اپوائنٹمنٹ کینسل", "اپوائنٹمنٹ کانسل",
+    "وزٹ کینسل", "وزٹ کانسل",
+    "اب نہیں آنا", "اپوائنٹمنٹ ختم",
 ]
 _RESCHEDULE_KEYWORDS = [
     "reschedule", "re schedule", "reshedule", "reschedul",
@@ -52,6 +61,34 @@ _RESCHEDULE_PHONETIC_PATTERNS = [
     # Also tolerates the same fragments with spaces collapsed.
     r"(?:ریس|ریز)\s*(?:کی|کے|ک)?\s*(?:جول|جل|جیول|کجول)",
 ]
+
+
+# STT phonetic patterns for "cancel" — mirrors _RESCHEDULE_PHONETIC_PATTERNS.
+# Deepgram can render "cancel" in several ways depending on the speaker's accent
+# and the script (Roman vs native Urdu).
+_CANCEL_PHONETIC_PATTERNS = [
+    # Roman / common ASR misspellings.
+    r"\b(?:cancel|cancell|kancel|kancell)\s*(?:kar|ker|kr|karna|kerni|karni|kardo|kerdein|kardein)?\b",
+
+    # Urdu-script ye-variant spellings (کینسل).
+    r"(?:کینسل)\s*(?:کر|کرنا|کرنی|کردو|کر دیں|کردیں)?",
+
+    # Urdu-script aleph-variant spellings (کانسل) — the most common STT misread.
+    r"(?:کانسل)\s*(?:کر|کرنا|کرنی|کردو|کر دیں|کردیں)?",
+
+    # Short / vowel-stripped variant (کنسل).
+    r"(?:کنسل)\s*(?:کر|کرنا|کرنی|کردو|کر دیں|کردیں)?",
+]
+
+
+def _looks_like_cancel(customer_text: str) -> bool:
+    lowered = (customer_text or "").lower().strip()
+    if any(kw in lowered for kw in _CANCEL_KEYWORDS):
+        return True
+    return any(
+        re.search(pattern, lowered, flags=re.IGNORECASE)
+        for pattern in _CANCEL_PHONETIC_PATTERNS
+    )
 
 
 def _looks_like_reschedule(customer_text: str) -> bool:
@@ -129,7 +166,7 @@ def detect_appointment_intent(customer_text: str, has_existing_appointment: bool
     """
     lowered = customer_text.lower()
 
-    if any(kw in lowered for kw in _CANCEL_KEYWORDS):
+    if _looks_like_cancel(customer_text):
         return "cancel"
     if _looks_like_reschedule(customer_text):
         return "reschedule"

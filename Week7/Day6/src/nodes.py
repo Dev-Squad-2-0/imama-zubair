@@ -199,9 +199,15 @@ def silence_node(state: AgentState) -> Dict[str, Any]:
 GOODBYE_KEYWORDS = [
     "shukriya", "thank you", "thanks", "bye", "khuda hafiz", "allah hafiz",
     "theek hai bas", "bas itna hi", "koi masla nahi",
+    # Call-ending phrases - observed live in STT: callers say "call end",
+    # "call band", or "end kar" when they want to hang up, and these are
+    # not generic enough to be confused with domain content.
+    "call end", "end the call", "call band", "band kar", "end kar",
+    "band karo", "khatam kar", "phone rakh",
     # native Urdu script - see conversation_memory.py's _NAME_PATTERNS_URDU_SCRIPT
     # comment for why this is a real second pattern set, not a transliteration step
     "شکریہ", "خدا حافظ", "اللہ حافظ", "بس اتنا ہی", "ٹھیک ہے بس",
+    "کال اینڈ", "کال بند", "بند کر", "ختم کر", "فون رکھ",
 ]
 
 _ESCALATION_KEYWORDS = [
@@ -1442,6 +1448,20 @@ def cancellation_node(state: AgentState) -> Dict[str, Any]:
     text = state["customer_text"]
     pending = state["appointment_status"]
 
+    # Guard: if the appointment is already marked cancelled in state (e.g. the
+    # previous turn's cancellation succeeded but the intent stayed sticky and
+    # re-routed here on the follow-up turn), do not attempt a second cancel.
+    if pending and pending.get("status") == "cancelled":
+        reply = (
+            "Ji sir, aap ki appointment pehle hi cancel ho chuki hai. "
+            "Kya main aap ki kisi aur tarah madad kar sakta hoon?"
+        )
+        # Return success=True so _route_after_write_action does NOT escalate,
+        # but skip the email node since nothing new happened on Calendar.
+        # We short-circuit to END by clearing last_write_action success so the
+        # graph takes the END branch (clarification_needed=True keeps it there).
+        return _write_action_update(state, "cancel", False, reply, clarification_needed=True)
+
     if not pending or not pending.get("event_id"):
         reply = "Maazrat sir, is call mein mujhe koi existing appointment nazar nahi aa rahi jise cancel karoon."
         return _write_action_update(state, "cancel", False, reply, clarification_needed=True)
@@ -1515,6 +1535,7 @@ def email_node(state: AgentState) -> Dict[str, Any]:
         "requirements_text": requirements_text,
         "old_start_datetime_iso": pending.get("_old_start_datetime"),
         "reason": pending.get("_cancel_reason", ""),
+        "client_email": profile.get("client_email"),  # CC the customer if they gave their email
     })
 
     crm_log_tool.invoke({

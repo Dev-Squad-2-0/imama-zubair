@@ -62,6 +62,18 @@ def parse_pkr_amount(text: str) -> Optional[int]:
 # Pakistani mobile numbers: 03XX-XXXXXXX, 03XXXXXXXXX, or +92 3XX XXXXXXX
 _PHONE_PATTERN = re.compile(r"(?:\+92[\s-]?|0)3\d{2}[\s-]?\d{7}\b")
 
+# Email addresses: capture standard user@domain.ext from speech
+# Customers often say or spell out email addresses including 'at' / '@' / 'gmail'
+# so we also handle the common spoken form "username at gmail dot com"
+_EMAIL_LITERAL_PATTERN = re.compile(
+    r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z]{2,}"
+)
+_EMAIL_SPOKEN_PATTERN = re.compile(
+    r"([a-zA-Z0-9_.+-]+)\s+(?:at|@|ایٹ)\s+([a-zA-Z0-9.-]+)\s+"
+    r"(?:dot|\.)\s+(com|net|org|pk|io|co)",
+    re.IGNORECASE,
+)
+
 
 @dataclass(frozen=True)
 class NameParseResult:
@@ -258,6 +270,22 @@ def parse_phone_number(text: str) -> Optional[str]:
     return m.group(0) if m else None
 
 
+def parse_email_address(text: str) -> Optional[str]:
+    """Extract a customer email address from text.
+    Handles both literal form (user@gmail.com) and spoken form
+    ("user at gmail dot com")."""
+    raw = (text or "").strip()
+    # Try literal email first (highest confidence)
+    m = _EMAIL_LITERAL_PATTERN.search(raw)
+    if m:
+        return m.group(0).lower()
+    # Try spoken form: "imamazubair at gmail dot com"
+    m = _EMAIL_SPOKEN_PATTERN.search(raw)
+    if m:
+        return f"{m.group(1)}@{m.group(2)}.{m.group(3)}".lower()
+    return None
+
+
 def parse_client_name(
     text: str,
     expect_name: bool = False,
@@ -274,6 +302,7 @@ class ConversationSlots:
     """Everything the agent currently 'knows' about this caller's intent."""
     client_name: Optional[str] = None      # Day 4: needed for calendar events
     client_phone: Optional[str] = None     # Day 4: needed for calendar events
+    client_email: Optional[str] = None     # Optional: send confirmation email to customer too
     budget: Optional[int] = None
     city: Optional[str] = None
     area: Optional[str] = None
@@ -319,6 +348,10 @@ class ConversationMemory:
         phone = parse_phone_number(text)
         if phone:
             self.slots.client_phone = phone
+
+        email = parse_email_address(text)
+        if email:
+            self.slots.client_email = email
             # strip the phone digits so parse_pkr_amount()'s raw-number
             # fallback (\d{6,}) can't misread them as a budget figure
             text = _PHONE_PATTERN.sub("", text)

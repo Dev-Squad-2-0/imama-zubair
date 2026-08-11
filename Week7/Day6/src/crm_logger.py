@@ -373,6 +373,20 @@ def get_client_preferences(client_phone: str) -> Optional[Dict[str, Any]]:
     return dict(row) if row else None
 
 
+def get_all_clients() -> List[Dict[str, Any]]:
+    """Returns all clients in the client_preferences table."""
+    try:
+        conn = _connect()
+        _ensure_table(conn)
+        rows = conn.execute(
+            "SELECT * FROM client_preferences ORDER BY updated_at DESC"
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return []
+    return [dict(row) for row in rows]
+
+
 # ---------------------------------------------------------------------------
 # Task 5: Appointment history
 # ---------------------------------------------------------------------------
@@ -424,6 +438,20 @@ def get_appointment_history(client_phone: str) -> List[Dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
+def get_all_appointments() -> List[Dict[str, Any]]:
+    """Returns all appointments from the history table."""
+    try:
+        conn = _connect()
+        _ensure_table(conn)
+        rows = conn.execute(
+            "SELECT * FROM appointment_history ORDER BY created_at DESC"
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return []
+    return [dict(row) for row in rows]
+
+
 # ---------------------------------------------------------------------------
 # Task 5: Follow-up reminders
 # ---------------------------------------------------------------------------
@@ -467,6 +495,20 @@ def get_due_reminders(as_of: Optional[str] = None) -> List[Dict[str, Any]]:
             "SELECT * FROM follow_up_reminders WHERE status = 'pending' AND due_at <= ? "
             "ORDER BY due_at ASC",
             (as_of,),
+        ).fetchall()
+        conn.close()
+    except Exception:
+        return []
+    return [dict(row) for row in rows]
+
+
+def get_all_reminders() -> List[Dict[str, Any]]:
+    """Returns all follow-up reminders, regardless of status."""
+    try:
+        conn = _connect()
+        _ensure_table(conn)
+        rows = conn.execute(
+            "SELECT * FROM follow_up_reminders ORDER BY created_at DESC"
         ).fetchall()
         conn.close()
     except Exception:

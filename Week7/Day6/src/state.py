@@ -64,7 +64,7 @@ def new_agent_state(session_id: str) -> AgentState:
         turn_id=0,
         caller_id=None,
         conversation_history=[],
-        user_profile={"client_name": None, "client_phone": None},
+        user_profile={"client_name": None, "client_phone": None, "client_email": None},
         property_preferences={
             "budget": None, "city": None, "area": None, "bedrooms": None,
             "purpose": None, "property_type": None,
@@ -93,6 +93,7 @@ def slots_from_text(existing_profile: Dict[str, Any], existing_prefs: Dict[str, 
     memory = ConversationMemory()
     memory.slots.client_name = existing_profile.get("client_name")
     memory.slots.client_phone = existing_profile.get("client_phone")
+    memory.slots.client_email = existing_profile.get("client_email")
     memory.slots.budget = existing_prefs.get("budget")
     memory.slots.city = existing_prefs.get("city")
     memory.slots.area = existing_prefs.get("area")
@@ -121,6 +122,7 @@ def slots_from_text(existing_profile: Dict[str, Any], existing_prefs: Dict[str, 
         "user_profile": {
             "client_name": memory.slots.client_name,
             "client_phone": memory.slots.client_phone,
+            "client_email": memory.slots.client_email,
         },
         "property_preferences": {
             **existing_prefs,

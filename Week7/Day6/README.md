@@ -1,6 +1,9 @@
-# Week 7 — Day 6: Production Testing, Security, Monitoring & Deployment
+# Week 7 — Day 6 & 7: Production Testing, Security, Monitoring & Capstone Deployment
 
 ## RealEstate Hub AI Voice Agent
+
+> [!NOTE]
+> **Capstone Project:** This is the final project deliverable! It combines the rigorous production-hardening and testing from Day 6 with the final deployment, executive documentation, and client handover deliverables from Day 7. For Day 7 specific executive deliverables, please see the [Day 7 README](Day7/README.md).
 
 Day 6 focused on taking the RealEstate Hub voice agent from a working prototype to a more production-ready system.
 
@@ -21,6 +24,41 @@ The work completed on Day 6 covered:
 - A single `main.py` startup entrypoint
 
 The goal was not to redesign the agent. The goal was to validate the existing system under realistic usage, identify failures, and make targeted production-hardening changes without changing the intended business behavior.
+
+---
+
+## 📞 VAPI Phone Service Integration
+
+For the final production deployment, we transitioned our voice services to **VAPI**. 
+This setup uses **Deepgram Nova 3** for Speech-to-Text, our LangGraph orchestration as a Custom LLM backend, and **ElevenLabs** for highly realistic Text-to-Speech.
+
+### How to Run the Project with VAPI
+
+1. **Start the Backend Server (via Docker or Locally)**
+   Ensure the FastAPI server is running on port `8001` (if running locally on Windows as configured, otherwise `8000`).
+   ```powershell
+   docker compose up --build
+   # OR
+   python main.py
+   ```
+
+2. **Expose the Local Server to the Internet**
+   Use `ngrok` (or a similar tunneling service) to expose your local port:
+   ```powershell
+   ngrok http 8001
+   ```
+
+3. **Configure the VAPI Assistant**
+   - Go to your VAPI dashboard and navigate to your Assistant's **Provider / Custom LLM** settings.
+   - Enter your `ngrok` URL (e.g., `https://<your-ngrok-id>.ngrok-free.app/chat/completions`) as the Custom LLM URL.
+   - Ensure the required API endpoints and headers map to our deployment API correctly.
+   
+4. **Call the Agent**
+   - Call the phone number provisioned in your VAPI dashboard or use the VAPI web interface.
+   - VAPI will route the STT transcription directly to our LangGraph engine and stream the generated response back via ElevenLabs TTS!
+
+> [!WARNING]
+> **VAPI Credits:** VAPI credits are limited. Please test carefully to avoid exhausting your free credits.
 
 ---
 

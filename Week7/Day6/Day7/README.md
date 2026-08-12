@@ -17,6 +17,12 @@ The deployment configuration can be found in the root directory:
 - [docker-compose.yml](../docker-compose.yml)
 - [main.py](../main.py) (Single deployment entrypoint)
 
+
+---
+
+### NOTE on Phone Service (VAPI): 
+- For the phone service, we switched to VAPI that runs deepgram as STT, our project as custom LLM (langgraph as the orchestrator for workflow automation) and ElevenLabs as TTS.
+- VAPI Credits are limited so please call carefully.
 ### How to Run
 
 **1. Run using Docker (Recommended for Production)**

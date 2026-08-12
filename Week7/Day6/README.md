@@ -1160,37 +1160,318 @@ was added so the system no longer requires remembering multiple startup commands
 Project structure:
 
 ```text
-day6messaround/
-├── main.py
-├── .env
-├── Dockerfile
-├── docker-compose.yml
-├── credentials.json
+Day6/
+├── main.py                          # Single startup entrypoint (API, voice, readiness check)
+├── check_db.py                      # Quick SQLite database inspection utility
+├── Dockerfile                       # Docker image definition
+├── docker-compose.yml               # Docker Compose service orchestration
+├── .dockerignore                    # Files excluded from Docker build context
+├── .env                             # Local environment variables (not committed)
+├── .env.example                     # Template showing all required environment variables
+├── requirements.txt                 # Python dependencies
+├── graph_diagram.png                # Visual diagram of the LangGraph agent flow
+│
+├── config/
+│   └── domain_config.yaml           # Domain-level settings (city, agent tone, etc.)
+│
+├── data/                            # CSV knowledge files ingested into the vector store
+│   ├── properties.csv               # Real estate listings (price, beds, area, city, type)
+│   ├── amenities.csv                # Amenity details per property/location
+│   ├── developers.csv               # Developer information
+│   ├── faqs.csv                     # Frequently asked questions for RAG retrieval
+│   ├── hospitals.csv                # Nearby hospitals per location
+│   ├── locations.csv                # Location/area reference data
+│   ├── payment_plans.csv            # Installment and payment plan options
+│   └── schools.csv                  # Nearby schools per location
+│
 ├── db/
+│   ├── knowledge_base.db            # SQLite database (CRM, appointments, monitoring, properties)
+│   └── chroma/                      # Chroma vector store (persisted RAG embeddings)
+│
+├── documents/                       # Source documents loaded into RAG at startup
+│
 ├── prompts/
-├── src/
-└── tests/
+│   └── system_prompt.md             # LangGraph agent system prompt (Markdown)
+│
+├── persona/
+│   └── urdulish_persona.md          # Agent persona definition for Urdu/UrduLish callers
+│
+├── src/                             # Core application source code
+│   ├── graph.py                     # LangGraph graph definition and session management
+│   ├── state.py                     # GraphState TypedDict shared across all nodes
+│   ├── nodes.py                     # All LangGraph node implementations (routing, booking, etc.)
+│   ├── tools.py                     # LangGraph tool definitions (search, calendar, email)
+│   │
+│   ├── deployment_api.py            # FastAPI application with all production endpoints
+│   ├── logging_config.py            # Structured JSON logging configuration
+│   ├── monitoring.py                # Operational metrics recording and retrieval (SQLite)
+│   ├── security_guard.py            # Deterministic pre-LLM prompt-injection guard
+│   │
+│   ├── api.py                       # Internal agent API layer
+│   ├── llm_client.py                # LLM provider client (Groq primary, Gemini fallback)
+│   ├── rag_pipeline.py              # Chroma RAG pipeline with lazy init and background warmup
+│   ├── structured_retrieval.py      # Direct SQLite property retrieval (bypasses RAG for facts)
+│   ├── recommendation_engine.py     # Property filtering and ranking logic
+│   │
+│   ├── appointment_intent.py        # Deterministic booking/rescheduling/cancellation parser
+│   ├── appointment_management.py    # Appointment CRUD operations against SQLite
+│   ├── calendar_integration.py      # Google Calendar freebusy and event creation
+│   ├── call_intent.py               # High-level caller intent classification
+│   ├── conversation_memory.py       # Multi-turn memory persistence and retrieval
+│   ├── crm_logger.py                # CRM event logging to SQLite
+│   ├── email_automation.py          # Confirmation and follow-up email sending
+│   ├── objection_handler.py         # Caller objection detection and response generation
+│   ├── prompt_loader.py             # Loads and renders the system prompt from Markdown
+│   ├── speech_behaviors.py          # Fish Audio TTS chunking and expression tagging
+│   │
+│   ├── voice_pipeline.py            # Local microphone → Deepgram STT → LangGraph → TTS
+│   ├── live_audio_io.py             # Low-level audio I/O (PyAudio capture and playback)
+│   ├── live_voice_pipeline.py       # Live barge-in coordination during TTS playback
+│   ├── livekit_agent.py             # LiveKit room-based voice agent integration
+│   ├── conversation_agent.py        # Thin wrapper used by the voice pipeline
+│   │
+│   ├── graph_logger.py              # LangGraph turn-level structured logging
+│   ├── debug_spoken_date.py         # CLI tool to test Urdu/UrduLish date parsing
+│   ├── demo_appointment_pipeline.py # Demo script showing the appointment booking flow
+│   └── test_spoken_date_regressions.py  # Regression tests for the date parser
+│
+├── scripts/
+│   └── healthcheck.py               # Docker HEALTHCHECK script (calls /health/live)
+│
+├── tests/
+│   ├── production_eval/             # Task 1 & 2 evaluation suites
+│   │   ├── evaluation_suite.py      # 44-scenario conversation evaluation scenarios
+│   │   ├── prompt_injection_suite.py# 6 prompt-injection attack scenarios
+│   │   ├── run_evaluation_suite.py  # Runner: executes Task 1 and writes JSON results
+│   │   ├── run_performance_evaluation.py  # Runner: computes Task 3 metrics from results
+│   │   ├── run_prompt_injection_suite.py  # Runner: executes Task 2 security tests
+│   │   ├── runtime.py               # Shared graph runtime used by all test runners
+│   │   └── output/                  # Generated evaluation results (evaluation_results.json)
+│   │
+│   ├── task4_monitoring/            # Task 4 monitoring report runner
+│   │   └── run_monitoring_report.py # Reads SQLite metrics and prints a formatted report
+│   │
+│   ├── task5_deployment/            # Task 5 deployment structure tests
+│   │   └── test_deployment_structure.py  # Verifies Dockerfile, Compose, and API files exist
+│   │
+│   ├── task_3_performance/          # Task 3 performance evaluation (alias path)
+│   ├── task 1 evaluation/           # Legacy Task 1 folder
+│   ├── task 2 prompt injection evaluation/  # Legacy Task 2 folder
+│   ├── audio/                       # Recorded test audio samples
+│   ├── check_crm_logging.py         # Inspects CRM events for a given caller/session
+│   ├── test_appointment_workflow.py # Unit tests for booking/rescheduling/cancellation
+│   ├── test_langgraph_workflow.py   # Unit tests for the LangGraph graph turns
+│   └── test_live_pipeline_integration.py   # Integration tests for the live voice pipeline
+│
+├── crm_dashboard/                   # Browser-based CRM dashboard (HTML/CSS/JS)
+│   ├── index.html                   # Dashboard UI entry point
+│   ├── styles.css                   # Dashboard styles
+│   └── app.js                       # Dashboard JavaScript (reads SQLite via API)
+│
+├── n8n/
+│   └── real_estate_voice_agent_workflow.json  # n8n automation workflow export
+│
+├── livekit/                         # LiveKit configuration and agent scripts
+│
+├── sample_audio/                    # Sample audio files for offline testing
+│
+├── secrets/                         # Local secrets directory (not committed)
+│
+├── DOCS/                            # Internal operational documentation
+│   ├── PRODUCTION_READINESS.md      # Production readiness checklist
+│   ├── PROJECT_REVIEW.md            # Project review notes
+│   └── VOICE_PIPELINE_NOTES.md      # Voice pipeline tuning notes
+│
+├── Day7/                            # Day 7 executive deliverables
+│   └── README.md                    # Day 7 deployment and handover documentation
+│
+└── .github/
+    └── workflows/
+        └── ci.yml                   # GitHub Actions CI workflow
 ```
 
-## Start production FastAPI
+---
+
+## Setup Instructions
+
+### Prerequisites
+
+Before running the project, make sure the following are installed and available:
+
+| Tool | Purpose |
+|---|---|
+| Python 3.11+ | Runtime for all agent code |
+| Docker Desktop | Container-based deployment |
+| ngrok | Expose local server for VAPI/webhook |
+| Google credentials JSON | Google Calendar integration |
+
+---
+
+### 1. Clone and enter the project
+
+```powershell
+git clone <repo-url>
+cd Week7/Day6
+```
+
+### 2. Create a virtual environment
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+### 3. Install dependencies
+
+```powershell
+pip install -r requirements.txt
+```
+
+### 4. Configure environment variables
+
+Copy the example file and fill in your values:
+
+```powershell
+cp .env.example .env
+```
+
+Key variables to set in `.env`:
+
+```env
+# ============================================================
+# Deployment / FastAPI
+# ============================================================
+APP_ENV=production
+APP_VERSION=1.0.0
+PORT=8001
+HOST_PORT=8001
+WEB_CONCURRENCY=1
+# GOOGLE_CREDENTIALS_PATH=secrets/google_credentials.json
+GOOGLE_CREDENTIALS_PATH=secrets/credentials.json
+# ============================================================
+# Logging
+# ============================================================
+LOG_LEVEL=INFO
+LOG_FORMAT=json
+DEPENDENCY_LOG_LEVEL=WARNING
+
+# ============================================================
+# API AND MODELS
+# ============================================================
+
+API_KEY=
+BASE_URL=
+
+
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-3.5-flash-lite
+GROQ_API_KEY=
+GROQ_MODEL=openai/gpt-oss-120b
+# GROQ_MODEL=llama-3.1-8b-instant
+DEEPGRAM_API_KEY= 
+
+FISH_AUDIO_API_KEY=
+FISH_VOICE_ID=08028d56f21a4a369193123d01c4f5cc
+
+
+
+
+# Google Calendar
+GOOGLE_CALENDAR_ID=primary
+
+# Employee email (for testing)
+EMPLOYEE_EMAIL=youremail@gmail.com
+
+
+
+
+TEST_CALLER_ID=03000000000
+# ============================================================
+# Live Barge-In for local testing with main.py --voice
+# ============================================================
+LIVE_INPUT_DEVICE_INDEX=1
+LIVE_BARGE_IN_ON_VAD=0
+LIVE_BARGE_IN_ALLOW_INTERIM_FALLBACK=0
+
+LIVE_BARGE_IN_GRACE_MS=600
+LIVE_BARGE_IN_INTERIM_CONFIRMATIONS=3
+LIVE_BARGE_IN_INTERIM_MIN_CHARS=5
+
+LIVE_BARGE_IN_ENDPOINTING_MS=700
+LIVE_UTTERANCE_END_MS=1200
+# ============================================================
+# Readiness / Health Checks
+# ============================================================
+REQUIRE_CALENDAR_FOR_READINESS=1
+REQUIRE_EMAIL_FOR_READINESS=1
+REQUIRE_VOICE_FOR_READINESS=1 #1 for when i wanna test my stuff
+
+REQUIRE_RAG_FOR_READINESS=1
+
+
+# ============================================================
+# Database / RAG paths
+# Use these values for Docker deployment
+# ============================================================
+# RAG startup optimization
+# Warm the embedding model + Chroma in the background while the greeting plays.
+# DATABASE_PATH=/app/db/knowledge_base.db
+# CHROMA_DIR=/app/db/chroma
+RAG_WARMUP_ON_LIVE_START=1
+RAG_EMBEDDING_MODEL=all-MiniLM-L6-v2
+RAG_COLLECTION_NAME=knowledge_base
+RAG_WARMUP_QUERY=real estate property information
+
+
+# ============================================================
+# FISHAUDIO for local testing with main.py --voice
+# ============================================================
+# Slight speed-up over the selected voice's base pacing.
+# 1.00 = original voice speed.
+FISH_SPEECH_SPEED=1.10
+FISH_LATENCY_MODE=balanced
+LIVE_TTS_TARGET_CHARS=180
+LIVE_TTS_MAX_CHARS=320
+FISH_EXPRESSION_TAGS=1
+FISH_BASE_EXPRESSION=warm, natural, conversational, professional
+
+
+```
+
+### 5. Place your Google credentials
+
+Put your `credentials.json` (Google service account or OAuth) in the project root:
+
+```text
+Day6/
+└── credentials.json   ← place it here
+```
+
+---
+
+## Running the Project
+
+### Option A — Local Python (development)
+
+#### Start the FastAPI production server
 
 ```powershell
 python main.py
 ```
 
-## Start live voice agent
+#### Start the live voice agent (microphone)
 
 ```powershell
 python main.py --voice
 ```
 
-## Specify caller ID
+#### Specify caller ID
 
 ```powershell
 python main.py --voice --caller-id 03001234567
 ```
 
-## Specify session and caller
+#### Specify session and caller
 
 ```powershell
 python main.py --voice `
@@ -1198,19 +1479,19 @@ python main.py --voice `
   --caller-id 03001234567
 ```
 
-## Run readiness check
+#### Run readiness check
 
 ```powershell
 python main.py --check
 ```
 
-## Start API with reload
+#### Start API with auto-reload (development)
 
 ```powershell
 python main.py --reload
 ```
 
-## Change API port
+#### Change API port
 
 ```powershell
 python main.py --port 8001

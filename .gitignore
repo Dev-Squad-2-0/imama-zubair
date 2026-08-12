@@ -20,3 +20,5 @@ token.json
 gmail_token.json
 
 archived/
+secrets/
+.pytest_cache/

@@ -1337,7 +1337,42 @@ By the end of Day 6, the project had added or improved:
 
 ---
 
-# 31. Useful Commands
+# 31. Testing Results Summary
+
+## Task 1: Production Conversation Evaluation
+- **Total Scenarios:** 44
+- **Checks Passed:** 50
+- **Checks Failed:** 2
+- **Errored:** 0
+- **Conversation Success Rate:** 95.45%
+
+## Task 2: Prompt Injection & Security Testing
+- **Injection Attempts:** 16 (across 4 categories)
+- **Guardrails Held:** 16
+- **Guardrails Broken:** 0
+- **Errored:** 0
+
+## Task 3: Performance Evaluation
+- **Mean Turn Latency:** 5751.78 ms
+- **P95 Turn Latency:** 11610.42 ms
+- **Booking Success Rate:** 100.0%
+- **Tool Failures:** 0
+- **RAG Accuracy@3:** 100.0%
+- **Memory Accuracy:** 100.0%
+- **Hallucination Rate:** 0.0%
+
+## Task 4: Monitoring (24-hour Window)
+- **Average Latency:** 4932.59 ms
+- **TTS Success Rate:** 100.0% (Average TTS first-byte latency: 895.74 ms)
+- **API Failures:** 0
+- **Calendar Failures:** 0
+- **Email Failures:** 0
+- **Booking Success:** 5/5 (100.0%)
+- **RAG Misses:** 0/4 (0.0%)
+
+---
+
+# 32. Useful Commands
 
 ## Live agent
 
@@ -1409,7 +1444,7 @@ docker compose up --build
 
 ---
 
-# 32. Final Day 6 Status
+# 33. Final Day 6 Status
 
 Day 6 converted the project from a mostly feature-complete voice agent into a system with measurable production behavior.
 

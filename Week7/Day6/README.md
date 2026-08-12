@@ -1713,8 +1713,11 @@ python main.py --check
 
 ## API docs
 
+Note: Use either 8000 or 8001
 ```text
 http://localhost:8000/docs
+or 
+http://localhost:8001/docs
 ```
 
 ## Readiness endpoint

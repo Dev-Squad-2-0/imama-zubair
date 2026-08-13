@@ -421,17 +421,52 @@ def log_appointment_history(session_id: str, status: str, client_phone: Optional
         return CRMLogResult(success=False, error=str(e))
 
 
+def _normalize_phone(phone: str) -> str:
+    """Strip country code prefix and formatting so +923022356799,
+    923022356799, and 03022356799 all produce the same 11-digit
+    local form (03XXXXXXXXX). Vapi sends E.164 (+92...) while the
+    app stores local (03...) — without this, every cross-call CRM
+    lookup silently returns nothing and the user is forced to repeat
+    all their details on every call."""
+    import re
+    digits = re.sub(r"[^\d]", "", phone or "")
+    # +923022356799 -> 923022356799 -> 03022356799
+    if digits.startswith("92") and len(digits) == 12:
+        digits = "0" + digits[2:]
+    return digits
+
+
 def get_appointment_history(client_phone: str) -> List[Dict[str, Any]]:
     """All appointments (booked/rescheduled/cancelled) for one client,
-    oldest first - what a CRM screen would show under "appointment
-    history" for that phone number."""
+    oldest first. Normalizes both the query number and stored numbers
+    so +923022356799 matches a record stored as 03022356799."""
     try:
         conn = _connect()
         _ensure_table(conn)
+        normalized = _normalize_phone(client_phone)
+        # Try exact match first (fast path).
         rows = conn.execute(
             "SELECT * FROM appointment_history WHERE client_phone = ? ORDER BY id ASC",
             (client_phone,),
         ).fetchall()
+        if not rows and normalized != client_phone:
+            # Retry with normalized form (strips +92 prefix / dashes).
+            rows = conn.execute(
+                "SELECT * FROM appointment_history WHERE client_phone = ? ORDER BY id ASC",
+                (normalized,),
+            ).fetchall()
+        if not rows:
+            # Last-resort: scan all rows and compare normalized forms.
+            # Slightly more expensive but ensures a format difference
+            # (e.g. Vapi sending +92 vs app storing 03) is never a
+            # silent lookup failure.
+            all_rows = conn.execute(
+                "SELECT * FROM appointment_history ORDER BY id ASC"
+            ).fetchall()
+            rows = [
+                r for r in all_rows
+                if _normalize_phone(r["client_phone"] or "") == normalized
+            ]
         conn.close()
     except Exception:
         return []

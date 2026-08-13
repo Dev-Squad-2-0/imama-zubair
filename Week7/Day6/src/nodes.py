@@ -120,6 +120,19 @@ def _write_action_update(state: AgentState, kind: str, success: bool, agent_repl
     }
 
 
+def _normalize_phone(phone: str) -> str:
+    """Mirror of crm_logger._normalize_phone — strip country code / formatting
+    so +923022356799 and 03022356799 both resolve to '03022356799'.
+    Duplicated here (instead of importing from crm_logger) so nodes.py stays
+    free of a direct crm_logger import cycle in cases where crm_logger also
+    imports nodes helpers in the future."""
+    import re
+    digits = re.sub(r"[^\d]", "", phone or "")
+    if digits.startswith("92") and len(digits) == 12:
+        digits = "0" + digits[2:]
+    return digits
+
+
 def _restore_active_appointment_from_crm(state: AgentState) -> Optional[Dict[str, Any]]:
     """Return the caller's latest non-cancelled appointment from CRM.
 
@@ -127,16 +140,41 @@ def _restore_active_appointment_from_crm(state: AgentState) -> Optional[Dict[str
     persistent. Without this recovery step, restarting the live demo loses
     ``appointment_status`` and a returning caller cannot reschedule an event
     that still exists on Calendar.
+
+    Phone numbers are normalized before lookup so Vapi's E.164 format
+    (+923022356799) matches a record stored in local format (03022356799).
+    If phone lookup still returns nothing, falls back to searching by
+    client_name (useful when Vapi sends TEST_CALLER_ID on a re-dial).
     """
     current = state.get("appointment_status") or {}
     if current.get("event_id") and current.get("status") != "cancelled":
         return current
 
-    phone = (state.get("user_profile") or {}).get("client_phone") or state.get("caller_id")
-    if not phone:
-        return None
+    raw_phone = (state.get("user_profile") or {}).get("client_phone") or state.get("caller_id")
+    phone = _normalize_phone(raw_phone) if raw_phone else None
 
-    history = crm_logger.get_appointment_history(phone)
+    history = crm_logger.get_appointment_history(phone) if phone else []
+
+    # Name-based fallback: if phone lookup found nothing (e.g. TEST_CALLER_ID
+    # was used on first call but real number on second, or vice versa), try
+    # searching by client name captured earlier this turn.
+    if not history:
+        client_name = (state.get("user_profile") or {}).get("client_name")
+        if client_name:
+            try:
+                import sqlite3
+                conn = sqlite3.connect(crm_logger.DB_PATH)
+                conn.row_factory = sqlite3.Row
+                crm_logger._ensure_table(conn)
+                rows = conn.execute(
+                    "SELECT * FROM appointment_history WHERE client_name = ? ORDER BY id ASC",
+                    (client_name,),
+                ).fetchall()
+                conn.close()
+                history = [dict(r) for r in rows]
+            except Exception:
+                history = []
+
     if not history:
         return None
 
@@ -162,6 +200,7 @@ def _restore_active_appointment_from_crm(state: AgentState) -> Optional[Dict[str
                 "status": status,
             }
     return None
+
 
 
 # ---------- 1. Greeting ----------
@@ -1085,12 +1124,16 @@ def _property_choice_reply(candidates: List[Dict[str, Any]]) -> str:
 def _next_booking_question(
     field: str,
     candidates: Optional[List[Dict[str, Any]]] = None,
+    customer_text: str = "",
 ) -> str:
     """Ask for exactly ONE missing booking detail."""
     if field == "client_name":
         return "Ji, sab se pehle aap ka naam bata dijiye."
 
     if field == "area":
+        text_lower = customer_text.lower()
+        if re.search(r"\b(konsay|konse|kaunse|kaun|kahan|kaha|options|kya|kia|what)\b", text_lower):
+            return "Hamare paas DHA, Bahria Town, Gulberg, aur Johar Town jese areas mein properties hain. Aap kis area mein dekhna chahenge?"
         return "Ji, kis area mein property dekhna chahenge?"
 
     if field == "property_type":
@@ -1229,7 +1272,7 @@ def booking_node(state: AgentState) -> Dict[str, Any]:
             candidate = pending_name.get("candidate", "")
             reply = f"Aap ka naam {candidate} hai, correct?"
         else:
-            reply = _next_booking_question(next_missing, candidates)
+            reply = _next_booking_question(next_missing, candidates, state.get("customer_text", ""))
 
         return _write_action_update(
             state,
@@ -1311,7 +1354,7 @@ def booking_node(state: AgentState) -> Dict[str, Any]:
     reply = (
         f"Ji bilkul {draft['client_name']} sahab, aap ki appointment "
         f"{property_info['title']} ke liye {when} ko confirm ho gayi hai. "
-        "Confirmation aur appointment details bhej di jayengi."
+        "Hamare assigned agent ko is appointment ki notification bhej di gayi hai."
     )
 
     appointment_status = {
@@ -1379,9 +1422,73 @@ def rescheduling_node(state: AgentState) -> Dict[str, Any]:
     pending = state["appointment_status"]
 
     if not pending or not pending.get("event_id"):
-        reply = ("Maazrat sir, is call mein mujhe koi existing appointment nazar nahi aa rahi. "
-                 "Kya main nai appointment book kar doon?")
-        return _write_action_update(state, "reschedule", False, reply, clarification_needed=True)
+        # Try one more lookup using any name/phone the customer just mentioned
+        # on THIS turn (intent_detection_node runs before rescheduling_node,
+        # so slots may be fresher than what the restore already tried).
+        profile = state.get("user_profile") or {}
+        caller_id = state.get("caller_id")
+        fresh_phone = profile.get("client_phone") or caller_id
+        fresh_name = profile.get("client_name")
+
+        recovered = None
+        if fresh_phone:
+            import crm_logger as _clog
+            hist = _clog.get_appointment_history(fresh_phone)
+            for row in reversed(hist):
+                if row.get("event_id") and (row.get("status") or "").lower() in {"booked", "rescheduled"}:
+                    recovered = {
+                        "event_id": row["event_id"],
+                        "property_title": row.get("property_title"),
+                        "property_id": row.get("property_id"),
+                        "start_datetime": row.get("start_datetime"),
+                        "employee_name": "RealEstate Hub Agent",
+                        "employee_email": None,
+                        "status": row["status"],
+                    }
+                    break
+
+        if not recovered and fresh_name:
+            try:
+                import sqlite3
+                conn = sqlite3.connect(crm_logger.DB_PATH)
+                conn.row_factory = sqlite3.Row
+                crm_logger._ensure_table(conn)
+                rows = conn.execute(
+                    "SELECT * FROM appointment_history WHERE client_name = ? ORDER BY id DESC LIMIT 10",
+                    (fresh_name,),
+                ).fetchall()
+                conn.close()
+                for row in rows:
+                    if row["event_id"] and (row["status"] or "").lower() in {"booked", "rescheduled"}:
+                        recovered = {
+                            "event_id": row["event_id"],
+                            "property_title": row.get("property_title"),
+                            "property_id": row.get("property_id"),
+                            "start_datetime": row.get("start_datetime"),
+                            "employee_name": "RealEstate Hub Agent",
+                            "employee_email": None,
+                            "status": row["status"],
+                        }
+                        break
+            except Exception:
+                pass
+
+        if recovered:
+            # Found it — inject into state and continue normally below.
+            pending = recovered
+            # Persist so subsequent turns don't re-query.
+            from state import AgentState as _AS  # noqa: local import
+            state = {**state, "appointment_status": recovered}
+        else:
+            # Truly not found: ask for the registered phone number so we can
+            # look it up, rather than silently starting a brand-new booking flow.
+            reply = (
+                "Maazrat sir, mujhe aap ki koi existing appointment nahi mil rahi. "
+                "Kya aap apna registered phone number bata sakte hain "
+                "taake main record check kar sakoon?"
+            )
+            return _write_action_update(state, "reschedule", False, reply, clarification_needed=True)
+
 
     new_dt = parse_reschedule_datetime(text)
     if not new_dt:
@@ -1466,6 +1573,38 @@ def cancellation_node(state: AgentState) -> Dict[str, Any]:
         reply = "Maazrat sir, is call mein mujhe koi existing appointment nazar nahi aa rahi jise cancel karoon."
         return _write_action_update(state, "cancel", False, reply, clarification_needed=True)
 
+    outputs = state.get("tool_outputs") or {}
+    
+    # 1. Ask for confirmation before cancelling.
+    if not outputs.get("cancel_confirmed"):
+        old_when = datetime.fromisoformat(pending["start_datetime"]).strftime("%A, %d %B %Y at %I:%M %p")
+        prop = pending.get("property_title", "is property")
+        reply = (
+            f"Aap ki appointment {prop} ke liye {old_when} ko hai. "
+            "Kya aap waqai isey cancel karna chahte hain? "
+            "Agar aap chahein toh hum isey kisi aur waqt par reschedule bhi kar sakte hain."
+        )
+        return _write_action_update(
+            state, "cancel", False, reply, 
+            clarification_needed=True, 
+            tool_outputs={"cancel_confirmed": True}
+        )
+    
+    # 2. Check if they backed out of the cancellation after being asked.
+    text_lower = text.lower()
+    if re.search(r"\b(nahi|no|na|rehne do|chhoro|mat|rahne do)\b", text_lower) or "نہیں" in text_lower or "نہ" in text_lower:
+        reply = "Theek hai sir, main ne cancellation rok di hai. Aap ki appointment barqarar hai. Kya main aap ki kisi aur tarah madad kar sakta hoon?"
+        # Clear the intent so it stops routing back to the cancellation flow.
+        cleared_intent = dict(state.get("intent", {}))
+        cleared_intent["appointment_intent"] = None
+        return _write_action_update(
+            state, "cancel", False, reply,
+            clarification_needed=True,
+            tool_outputs={"cancel_confirmed": False},
+            intent=cleared_intent,
+        )
+
+    # 3. They confirmed (or didn't decline). Proceed to cancel.
     result = cancel_calendar_tool.invoke({"event_id": pending["event_id"], "reason": text})
     if not result["success"]:
         reply = f"Maazrat sir, cancel karne mein masla aa gaya: {result['error']}."

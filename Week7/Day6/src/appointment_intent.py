@@ -35,9 +35,12 @@ _RESCHEDULE_KEYWORDS = [
     "reschedule", "re schedule", "reshedule", "reschedul",
     "time change", "waqt tabdeel", "aage kar do", "date change",
     "time badal", "waqt badal", "kisi aur din", "kisi aur waqt",
+    "change karna", "change kar", "change karo", "change karo",
+    "appointment change", "visit change", "postpone",
     "ری شیڈول", "ریشیڈول", "ری شیڈیول", "ریشیڈیول",
     "وقت تبدیل", "آگے کر دیں", "تاریخ تبدیل", "وقت بدل",
-    "کسی اور دن", "کسی اور وقت",
+    "کسی اور دن", "کسی اور وقت", "اپوائنٹمنٹ چینج", "تبدیل کرنا",
+    "پوسٹ پون",
 ]
 
 # Deepgram often renders the English loanword "reschedule" phonetically in
@@ -130,6 +133,36 @@ def _looks_like_book(customer_text: str) -> bool:
     return any(re.search(pattern, lowered, flags=re.IGNORECASE) for pattern in _BOOK_PHONETIC_PATTERNS)
 
 
+# Past-tense / completive markers in Pakistani Urdu/Urduish.
+# "mene appointment book ki thi" (I booked an appointment [previously])
+# is NOT a request to book — the caller is describing an existing booking
+# to provide context, not starting a new one.
+_PAST_TENSE_BOOK_MARKERS = [
+    # Roman-Urdu completive forms
+    r"book\s+(?:ki|kar|kiya|kiye)\s+(?:thi|tha|the|thee|thay)",
+    r"book\s+(?:ho|hui|hoi|ho\s+gayi|ho\s+gai|ho\s+gaya)\b",
+    r"booking\s+(?:ki\s+thi|ho\s+gayi|kar\s+li|ho\s+gai)",
+    r"book\s+karwa\s+li",
+    r"book\s+kara\s+(?:li|liya)",
+    # Urdu script completive forms
+    r"بک\s+(?:کی|کر)\s+(?:تھی|تھا|تھے)",
+    r"بکنگ\s+(?:کی\s+تھی|ہو\s+گئی|کروا\s+لی)",
+    r"اپوائنٹمنٹ\s+بک\s+(?:کی|ہو)\b",
+]
+
+
+def _looks_like_past_tense_book(customer_text: str) -> bool:
+    """Return True when the customer is describing a booking they ALREADY made
+    (past tense), not requesting a new one. Used to suppress the 'book' intent
+    when has_existing_appointment=True so a live reschedule flow is not
+    derailed by the word 'book' appearing in a context sentence."""
+    lowered = (customer_text or "").lower().strip()
+    return any(
+        re.search(pattern, lowered, flags=re.IGNORECASE)
+        for pattern in _PAST_TENSE_BOOK_MARKERS
+    )
+
+
 def resolve_stateful_appointment_intent(
     detected_intent: Optional[str],
     previous_intent: Optional[str],
@@ -163,6 +196,11 @@ def detect_appointment_intent(customer_text: str, has_existing_appointment: bool
     "reschedule". In that context an appointment reference plus a real
     date/time is enough to mean reschedule; without existing appointment
     state the same sentence is *not* silently reinterpreted.
+
+    Past-tense suppression: when `has_existing_appointment` is True and the
+    text looks like a past-tense description of an existing booking (e.g.
+    "mene kal ki appointment book ki thi"), the 'book' intent is suppressed
+    so it doesn't override an active reschedule/cancel flow.
     """
     lowered = customer_text.lower()
 
@@ -171,7 +209,13 @@ def detect_appointment_intent(customer_text: str, has_existing_appointment: bool
     if _looks_like_reschedule(customer_text):
         return "reschedule"
     if _looks_like_book(customer_text):
-        return "book"
+        # Suppress when the caller has an existing appointment AND the phrase
+        # is clearly past-tense ("mene appointment book ki thi" = describing
+        # the booking they want to change, NOT requesting a brand-new one).
+        if has_existing_appointment and _looks_like_past_tense_book(customer_text):
+            pass  # fall through — do not return "book"
+        else:
+            return "book"
 
     if (
         has_existing_appointment

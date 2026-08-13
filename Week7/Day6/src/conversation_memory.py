@@ -374,21 +374,66 @@ class ConversationMemory:
         # better, sourcing it dynamically from structured_retrieval.py
         # instead of hardcoding it here at all.
         area_aliases = {
-            "dha phase 6": "DHA Phase 6", "dha phase 2": "DHA Phase 2",
-            "dha": "DHA Phase 6",  # ambiguous bare "DHA" defaults to phase 6
+            # --- DHA phases (all numeric and ordinal variants Vapi STT produces) ---
+            "dha phase 6": "DHA Phase 6", "dha phase six": "DHA Phase 6",
+            "dha phase 2": "DHA Phase 2", "dha phase two": "DHA Phase 2",
+            "dha phase 8": "DHA Phase 8", "dha phase eight": "DHA Phase 8",
+            "dha phase ath": "DHA Phase 8", "dha phase aath": "DHA Phase 8",
+            "dha phase 5": "DHA Phase 6",  # Phase 5 not in DB, fallback to 6
+            "dha phase five": "DHA Phase 6",
+            "dha phase 1": "DHA Phase 2",  # Phase 1 not in DB, fallback to 2
+            "dha phase one": "DHA Phase 2",
+            "dha": "DHA Phase 6",  # bare DHA defaults to phase 6
+            # --- Bahria Town — every phonetic spelling Vapi/Deepgram produces ---
             "bahria town": "Bahria Town",
+            "bahriya town": "Bahria Town",
+            "behriya town": "Bahria Town",
+            "bahria": "Bahria Town",
+            "bahriya": "Bahria Town",
+            "baharia town": "Bahria Town",
+            "baharia": "Bahria Town",
+            # --- Other areas ---
             "gulberg": "Gulberg",
             "gulshan-e-iqbal": "Gulshan-e-Iqbal",
+            "gulshan iqbal": "Gulshan-e-Iqbal",
+            "gulshan": "Gulshan-e-Iqbal",
             "johar town": "Johar Town",
-            "f-10": "F-10", "f-11": "F-11", "e-11": "E-11",
-            # native Urdu script - same canonical values, not a fallback list
-            "ڈی ایچ اے فیز 6": "DHA Phase 6", "ڈی ایچ اے فیز 2": "DHA Phase 2",
+            "johar": "Johar Town",
+            "wapda town": "Wapda Town",
+            "wapda": "Wapda Town",
+            "blue area": "Blue Area",
+            "g-11": "G-11", "g 11": "G-11",
+            "f-10": "F-10", "f 10": "F-10",
+            "f-11": "F-11", "f 11": "F-11",
+            "pechs": "PECHS",
+            "clifton": "Clifton",
+            "bahadurabad": "Bahadurabad",
+            "bahadarabad": "Bahadurabad",
+            # --- Native Urdu script variants ---
+            "ڈی ایچ اے فیز 6": "DHA Phase 6",
+            "ڈی ایچ اے فیز 2": "DHA Phase 2",
+            "ڈی ایچ اے فیز 8": "DHA Phase 8",
+            "ڈی ایچ اے فیز سیکس": "DHA Phase 6",
+            "ڈی ایچ اے فیز چھ": "DHA Phase 6",
+            "ڈی ایچ اے فیز آٹھ": "DHA Phase 8",
+            "ڈی ایچ اے فیز اٹھ": "DHA Phase 8",
+            "ڈی ایچ اے فیز پانچ": "DHA Phase 6",  # Phase 5 not in DB
             "ڈی ایچ اے": "DHA Phase 6",
             "بحریہ ٹاؤن": "Bahria Town",
+            "بحریہ": "Bahria Town",
+            "بہریہ ٹاؤن": "Bahria Town",
+            "بہریہ": "Bahria Town",
             "گلبرگ": "Gulberg",
             "گلشن اقبال": "Gulshan-e-Iqbal",
+            "گلشن": "Gulshan-e-Iqbal",
             "جوہر ٹاؤن": "Johar Town",
+            "جوہر": "Johar Town",
+            "واپڈا ٹاؤن": "Wapda Town",
             "ایف 10": "F-10",
+            "بہادر آباد": "Bahadurabad",
+            "بہادرآباد": "Bahadurabad",
+            "کلفٹن": "Clifton",
+            "پیکس": "PECHS",
         }
         for alias in sorted(area_aliases, key=len, reverse=True):
             if alias in lowered:
